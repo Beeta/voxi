@@ -1,6 +1,6 @@
 {
   "name": "有听有记Voxi",
-  "identifier": "dev.zhaorongcun.voxi",
+  "identifier": "dev.beeta.voxi",
   "version": "0.1.0",
   "icon": "logo/icon.png",
   "main": "./cmd/voxi",
