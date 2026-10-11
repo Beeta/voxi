@@ -34,9 +34,11 @@ brew install cloudflared
 
 | 项 | 说明 |
 | --- | --- |
-| Base URL | 填到 `/v1` 这一层即可（如 `https://api.deepseek.com/v1`），程序会自动补上 `/chat/completions`；若你已经填了完整路径，则原样使用 |
+| Base URL | 填接入点的根地址即可（如 `https://api.deepseek.com`）。程序会先去掉结尾的 `/`，再补上 `/chat/completions`；如果你填的已经是完整的 `.../chat/completions`，则原样使用 |
 | API Key | 该服务的密钥 |
 | 模型 ID | 如 `deepseek-chat`、`gpt-4o-mini` 等 |
+
+**要不要带 `/v1` 取决于服务商**，本应用不做猜测：DeepSeek 的 `https://api.deepseek.com` 和 `https://api.deepseek.com/v1` 都可用（`/v1` 只是它提供的 OpenAI 兼容路径，两者都指向同一套接口）；而 OpenAI 的路径必须带版本段，得填 `https://api.openai.com/v1`。填完点「验证连接」实测一下，返回 404 基本就是路径少写或多写了 `/v1`。
 
 任何 OpenAI 兼容服务都可以：OpenAI、DeepSeek、火山方舟、本地跑 Ollama / LM Studio 等。填好后可以点「验证连接」发一个最小请求实测。**不配也能用**——录音、播放、笔记、转写都不受影响，只是摘要 / 脑图 / 问答会不可用。
 
