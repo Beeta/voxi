@@ -44,20 +44,30 @@ brew install cloudflared
 
 ## 构建与运行
 
+先装一次 mygo 的命令行工具，之后就可以直接用 `mygo`：
+
 ```sh
-go run ./cmd/voxi                                       # 开发：直接跑
-go run github.com/egoist/mygo/cmd/mygo@v0.3.5 dev .     # 开发：热重载
-go run github.com/egoist/mygo/cmd/mygo@v0.3.5 build .   # 打包成 .app 和 .dmg
+go install github.com/egoist/mygo/cmd/mygo@v0.3.5   # 装一次即可
+mygo build .                                        # 打包成 .app 和 .dmg
+mygo dev .                                          # 开发：热重载
 ```
 
-需要 Go 1.27+。mygo 是普通 Go module 依赖，由 `go.mod` 拉取，**不需要克隆 mygo 仓库**。`go install github.com/egoist/mygo/cmd/mygo@v0.3.5` 之后可以把上面的 `go run ...@v0.3.5` 简写成 `mygo`。
+`go install` 会把 `mygo` 放进 `$(go env GOPATH)/bin`（通常是 `~/go/bin`），如果提示 `command not found`，把这个目录加进 `$PATH`，或者直接用下面 `go run` 的写法——不装也能跑，只是每次都要重新解析一遍模块：
+
+```sh
+go run ./cmd/voxi                                       # 开发：直接跑
+go run github.com/egoist/mygo/cmd/mygo@v0.3.5 build .   # 打包成 .app 和 .dmg
+go run github.com/egoist/mygo/cmd/mygo@v0.3.5 dev .     # 开发：热重载
+```
+
+需要 Go 1.27+。mygo 是普通 Go module 依赖，由 `go.mod` 拉取，**不需要克隆 mygo 仓库**。
 
 ### 打包成 .dmg
 
 在 macOS 上，`mygo build` **会顺带生成 dmg**，不用额外命令：
 
 ```sh
-go run github.com/egoist/mygo/cmd/mygo@v0.3.5 build .
+mygo build .
 ```
 
 产物落在 `mygo.json` 里 `out` 指定的目录（本项目是 `build/`）下的平台子目录中：
