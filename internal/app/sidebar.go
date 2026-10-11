@@ -22,11 +22,16 @@ func (a *app) view(c *ui.Context) {
 		})
 		return
 	}
-	ui.Row(c).Fill().AlignItems(ui.Stretch).Background(pageBg).Children(func() {
+	root := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(pageBg)
+	root.Children(func() {
 		a.sidebar(c)
 		a.detail(c)
 	})
-	a.settingsModal(c)
+	// The dialog is capped by the window, so its scrolling body gets what is
+	// left over. root's box is the window's content area — the previous
+	// frame's, which is all a dialog needs and keeps this out of the window
+	// API.
+	a.settingsModal(c, root.Bounds().H)
 }
 
 func (a *app) sidebar(c *ui.Context) {

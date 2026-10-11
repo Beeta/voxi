@@ -7,14 +7,17 @@ import (
 
 // settingsModal renders the settings dialog over the window while
 // a.showSettings is true: capture sources, the ASR key, and LLM providers.
-func (a *app) settingsModal(c *ui.Context) {
+// windowH is the window's content height, which the dialog sizes its body
+// against; 0 means the window has not been measured yet.
+func (a *app) settingsModal(c *ui.Context, windowH float32) {
 	if !a.showSettings {
 		return
 	}
 	s := a.settings.snapshot()
+	body := settingsBodyHeight(windowH)
 	ui.Modal(c.Key("settings"), &a.showSettings, func() {
 		// 616 is the original 560 grown by 10%, matching the window size in
-		// app.go; the scroll area below is capped at the same height.
+		// app.go; the scrolling body below shrinks with the window.
 		ui.Column(c).Width(616).Gap(14).Children(func() {
 			ui.Row(c).AlignItems(ui.Center).Children(func() {
 				ui.Text(c, "设置").FontSize(18).Bold().TextColor(ink).Grow(1)
@@ -24,7 +27,7 @@ func (a *app) settingsModal(c *ui.Context) {
 					a.showSettings = false
 				}
 			})
-			ui.Scroll(c.Key("set-scroll")).MaxHeight(616).Children(func() {
+			ui.Scroll(c.Key("set-scroll")).MaxHeight(body).Label("设置内容").Children(func() {
 				ui.Column(c).Gap(22).Padding(0, 2).Children(func() {
 					a.recordSettings(c, s)
 					a.asrSettings(c, s)
@@ -41,6 +44,31 @@ func (a *app) settingsSection(c *ui.Context, title string, body func()) {
 		ui.Text(c, title).FontSize(13).Bold().TextColor(muted)
 		body()
 	})
+}
+
+// What the settings dialog spends outside its scrolling body.
+const (
+	// settingsBodyFallback is what the body was fixed at before it followed
+	// the window: used until the window is measured.
+	settingsBodyFallback = 616
+	// settingsBodyChrome is the panel's insets plus the title row and the
+	// gap under it, with a little slack; measured at 121 for this dialog.
+	settingsBodyChrome = 140
+	// settingsBodyFloor keeps the body usable in a window too short to show
+	// it all.
+	settingsBodyFloor = 240
+)
+
+// settingsBodyHeight caps the scrolling body of the settings dialog so the
+// whole dialog fits in a window of height windowH. The modal panel is capped
+// at the window height less the theme's spacing on both sides, and inside
+// that it pads by the spacing and holds a title row with a gap under it;
+// what is left is the body's.
+func settingsBodyHeight(windowH float32) float32 {
+	if windowH <= 0 {
+		return settingsBodyFallback
+	}
+	return float32(maxf(float64(windowH-settingsBodyChrome), settingsBodyFloor))
 }
 
 // recordSettings toggles the capture sources.
