@@ -141,7 +141,7 @@ internal/tunnel/  cloudflared quick tunnel，供 ASR 从公网取音频
 
 - **录制**：勾选要捕获的音频源（麦克风、系统输出），以及录音文件的存放位置（默认是下载目录）。改到别的目录时可以选择把已有录音一起搬过去；不搬的话旧录音留在原处，仍可播放和识别。
 - **语音识别（豆包语音）**：填写 [豆包语音](https://console.volcengine.com/speech/new/experience/asr) 的 API Key 与 cloudflared 可执行文件路径（默认 `/opt/homebrew/bin/cloudflared`），用于录音转写。
-- **大模型（LLM）**：配置一个 OpenAI 兼容的接入点——Base URL、API Key、模型 ID，驱动摘要 / 脑图 / 问答；可点「验证连接」向该地址发一个最小请求实测是否可用。
+- **大模型（LLM）**：配置一个 OpenAI 兼容的接入点——Base URL、API Key、模型 ID，驱动摘要 / 脑图 / 问答；Base URL 输入框下方会实时显示最终请求的完整地址（省得猜 `/v1` 该不该写），可点「验证连接」向该地址发一个最小请求实测是否可用。
 
 设置持久化在应用数据目录的 `settings.json`。注意：ASR 与 LLM 的 API Key 以**明文**保存在该文件里，界面上也直接明文显示（文件仅当前用户可读）；如果在意，别在会被备份 / 同步或共享的机器上填入敏感密钥。
 

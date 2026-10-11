@@ -18,8 +18,11 @@ type chatMessage struct {
 	Content string `json:"content"`
 }
 
-// chatCompletionsURL normalizes a base URL to the chat-completions endpoint.
-func chatCompletionsURL(base string) string {
+// Endpoint normalizes a configured base URL to the chat-completions URL the
+// client actually requests: trailing slashes are dropped, and /chat/completions
+// is appended unless the base already ends with it. The settings dialog shows
+// the result so a missing (or extra) /v1 is visible before it 404s.
+func Endpoint(base string) string {
 	u := strings.TrimRight(strings.TrimSpace(base), "/")
 	if !strings.HasSuffix(u, "/chat/completions") {
 		u += "/chat/completions"
@@ -53,7 +56,7 @@ func (c Client) complete(msgs []chatMessage) (string, error) {
 // post sends a request body to the endpoint and returns the response bytes,
 // turning a non-200 into an error with a short body snippet.
 func (c Client) post(body []byte) ([]byte, error) {
-	req, err := http.NewRequest(http.MethodPost, chatCompletionsURL(c.baseURL), bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, Endpoint(c.baseURL), bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +82,7 @@ func (c Client) Ask(transcript string, history []store.ChatMessage, question str
 	}
 	msgs = append(msgs, chatMessage{Role: "user", Content: question})
 	body, _ := json.Marshal(map[string]any{"model": c.model, "messages": msgs, "stream": true})
-	req, err := http.NewRequest(http.MethodPost, chatCompletionsURL(c.baseURL), bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, Endpoint(c.baseURL), bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
@@ -128,7 +131,7 @@ func (c Client) Ask(transcript string, history []store.ChatMessage, question str
 // baseURL and reports whether it accepted it. The settings dialog uses it to
 // check a connection before saving.
 func Verify(baseURL, key, model string) error {
-	url := chatCompletionsURL(baseURL)
+	url := Endpoint(baseURL)
 	payload, _ := json.Marshal(map[string]any{
 		"model":      model,
 		"messages":   []map[string]string{{"role": "user", "content": "ping"}},

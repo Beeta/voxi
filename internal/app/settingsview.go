@@ -110,6 +110,7 @@ func (a *app) llmSettings(c *ui.Context, s Settings) {
 		a.fieldInput(c, "llm-base", "Base URL", s.LLMBaseURL, func(v string) {
 			a.settings.update(func(st *Settings) { st.LLMBaseURL = v })
 		})
+		a.endpointHint(c, s.LLMBaseURL)
 		a.fieldInput(c, "llm-key", "API Key", s.LLMKey, func(v string) {
 			a.settings.update(func(st *Settings) { st.LLMKey = v })
 		})
