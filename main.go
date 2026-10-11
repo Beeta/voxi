@@ -1,9 +1,10 @@
-// Recorder is a MyGo app for capturing audio and managing the recordings:
-// record the microphone and the system output into an AAC (.m4a) file, then
-// browse the library, play a recording back on a seekable timeline, transcribe
-// it to timed text through an ASR service, and rename or delete it.
+// Voxi (有听有记) is a MyGo app for capturing meeting audio and turning it
+// into usable notes: record the microphone and the system output into an AAC
+// (.m4a) file, then browse the library, play a recording back on a seekable
+// timeline, transcribe it to timed text through an ASR service, and build
+// summaries, mind maps, Q&A and notes on top of the transcript.
 //
-//	go run ./examples/recorder
+//	go run .
 //
 // Capturing and playback are macOS only (ScreenCaptureKit + AVAudioPlayer); on
 // other platforms the window still opens and explains that.
@@ -107,7 +108,7 @@ func main() {
 	mygo.Theme.SetSource(mygo.ThemeDark)
 	mygo.App.WhenReady(func() {
 		win := mygo.NewWindow(mygo.WindowOptions{
-			Title:           "录音",
+			Title:           "Voxi",
 			Width:           880,
 			Height:          640,
 			MinWidth:        720,

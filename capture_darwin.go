@@ -119,10 +119,10 @@ type debugTrace struct {
 
 func (d *debugTrace) reset() {
 	d.mu.Lock()
-	// Opt-in: set MYGO_RECORDER_DEBUG=1 to append the trace to
-	// ~/mygo-recorder-debug.log. Off by default, so a released app does
-	// not write to the user's home directory.
-	d.enabled = os.Getenv("MYGO_RECORDER_DEBUG") != ""
+	// Opt-in: set VOXI_DEBUG=1 to append the trace to ~/voxi-debug.log.
+	// Off by default, so a released app does not write to the user's home
+	// directory.
+	d.enabled = os.Getenv("VOXI_DEBUG") != ""
 	d.counts = map[string]int{}
 	d.samples = map[string]int{}
 	d.seen = map[string]bool{}
@@ -165,7 +165,7 @@ func (d *debugTrace) note(format string, args ...any) {
 
 func (d *debugTrace) write(line string) {
 	home, _ := os.UserHomeDir()
-	f, err := os.OpenFile(filepath.Join(home, "mygo-recorder-debug.log"),
+	f, err := os.OpenFile(filepath.Join(home, "voxi-debug.log"),
 		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		return

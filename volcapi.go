@@ -44,7 +44,7 @@ func submitTask(apiKey, fileURL, format string) (string, error) {
 		return "", err
 	}
 	body, _ := json.Marshal(volcSubmit{
-		User:  map[string]string{"uid": "ducc-recorder"},
+		User:  map[string]string{"uid": "voxi"},
 		Audio: volcAudio{Format: format, URL: fileURL},
 		Request: volcRequest{
 			ModelName: "bigmodel", EnableITN: true, EnablePunc: true,

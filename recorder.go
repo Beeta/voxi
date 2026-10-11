@@ -1,10 +1,10 @@
-// Recorder is a small MyGo app drawn in native UI: a window with a record
-// button and a check box for each audio source — the microphone and the
-// system's output (what the speakers or headphones play). Click record to
-// capture the chosen sources, mixing them into one AAC (.m4a) file that is
-// encoded as it records, not buffered until the end.
+// Voxi's capture core, drawn in native UI: a window with a record button and
+// a check box for each audio source — the microphone and the system's output
+// (what the speakers or headphones play). Click record to capture the chosen
+// sources, mixing them into one AAC (.m4a) file that is encoded as it
+// records, not buffered until the end.
 //
-//	go run ./examples/recorder
+//	go run .
 //
 // Capturing audio is macOS only (ScreenCaptureKit, macOS 15+); on other
 // platforms the window still opens and explains that.

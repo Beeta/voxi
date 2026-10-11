@@ -1,4 +1,4 @@
-module github.com/zhaorongcun/recorder
+module github.com/zhaorongcun/voxi
 
 go 1.27.1
 
