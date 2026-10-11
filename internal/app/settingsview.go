@@ -13,7 +13,9 @@ func (a *app) settingsModal(c *ui.Context) {
 	}
 	s := a.settings.snapshot()
 	ui.Modal(c.Key("settings"), &a.showSettings, func() {
-		ui.Column(c).Width(560).Gap(14).Children(func() {
+		// 616 is the original 560 grown by 10%, matching the window size in
+		// app.go; the scroll area below is capped at the same height.
+		ui.Column(c).Width(616).Gap(14).Children(func() {
 			ui.Row(c).AlignItems(ui.Center).Children(func() {
 				ui.Text(c, "设置").FontSize(18).Bold().TextColor(ink).Grow(1)
 				done := ui.ButtonBase(c.Key("set-done")).Padding(6, 14).Radius(8).Center().Background(accent)
@@ -22,7 +24,7 @@ func (a *app) settingsModal(c *ui.Context) {
 					a.showSettings = false
 				}
 			})
-			ui.Scroll(c.Key("set-scroll")).MaxHeight(560).Children(func() {
+			ui.Scroll(c.Key("set-scroll")).MaxHeight(616).Children(func() {
 				ui.Column(c).Gap(22).Padding(0, 2).Children(func() {
 					a.recordSettings(c, s)
 					a.asrSettings(c, s)

@@ -107,9 +107,11 @@ func Run() error {
 	mygo.Theme.SetSource(mygo.ThemeDark)
 	mygo.App.WhenReady(func() {
 		win := mygo.NewWindow(mygo.WindowOptions{
-			Title:           "Voxi",
-			Width:           880,
-			Height:          640,
+			Title: "Voxi",
+			// 968x704 is 880x640 grown by 10%; the settings dialog in
+			// settingsview.go scaled by the same factor.
+			Width:           968,
+			Height:          704,
 			MinWidth:        720,
 			MinHeight:       480,
 			BackgroundColor: "#1c1c1e",
