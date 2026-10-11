@@ -1,0 +1,12 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Signal Nodes: 麦克风/系统两个源节点连入中心录制红点 -->
+  <g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round">
+    <path d="M 27 27 Q 42 38 49 49"/>
+    <path d="M 27 73 Q 42 62 49 51"/>
+  </g>
+  <g fill="currentColor">
+    <circle cx="27" cy="27" r="6.5"/>
+    <circle cx="27" cy="73" r="6.5"/>
+  </g>
+  <circle cx="56" cy="50" r="11" fill="#ff453a"/>
+</svg>

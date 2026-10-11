@@ -1,0 +1,13 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Converge: 两路音源汇入录制红点, 合成一路输出(.m4a) -->
+  <g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round">
+    <path d="M 16 28 Q 40 30 51 47"/>
+    <path d="M 16 72 Q 40 70 51 53"/>
+    <path d="M 64 50 L 86 50"/>
+  </g>
+  <g fill="currentColor">
+    <circle cx="16" cy="28" r="3.6"/>
+    <circle cx="16" cy="72" r="3.6"/>
+  </g>
+  <circle cx="55" cy="50" r="9.5" fill="#ff453a"/>
+</svg>

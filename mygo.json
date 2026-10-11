@@ -1,0 +1,14 @@
+{
+  "name": "Recorder",
+  "identifier": "com.mygo.recorder",
+  "version": "0.1.0",
+  "main": ".",
+  "out": "build",
+  "macos": {
+    "minimumSystemVersion": "15.0",
+    "infoPlist": {
+      "NSMicrophoneUsageDescription": "录音应用需要访问麦克风以录制你的声音。",
+      "NSAudioCaptureUsageDescription": "录音应用需要捕获系统音频以录制扬声器或耳机播放的声音。"
+    }
+  }
+}
