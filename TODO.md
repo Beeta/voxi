@@ -55,3 +55,25 @@
 - 绝对路径的硬伤：目录一搬，老记录全指向失效位置。建议改成 `File` 存相对路径 + 设置里存根目录，长期更稳。
 - 索引文件是否跟着音频走：建议 `recordings.json` / `settings.json` 留在 app data，只有音频文件跟配置目录走，避免设置文件自我引用。
 - 首次切换目录时提供一次性迁移（复制/移动 + 改写索引），否则用户体验会断。
+
+## 4. 录制过程中支持暂停 / 继续
+
+**现状**
+
+- 状态机只有 `Idle / Starting / Recording / Stopping`（`internal/audio/recorder.go`）。
+- `deliver` 已经在 `state != Recording && state != Starting` 时直接丢帧，所以"暂停"天然可以复用它来丢弃音频。
+- 时长靠 `time.Since(r.started)` 算，`tick()` 每 500ms 刷新，`state != Recording` 就停。
+- 音频是边到边编码的流式写入，文件时长由写入的样本数决定。
+
+**要做的事**
+
+- 加 `StatePaused`；暂停时**保持 capture 运行**（ScreenCaptureKit 重启有成本和权限风险），只让 `deliver` 丢帧。
+- `Recorder` 记 `pausedAt` / `pausedTotal`，`Snapshot` 的 elapsed 排除暂停时间；`tick()` 把 `Paused` 也当作需要继续刷新的状态；`Stop()` 允许从 `Paused` 进入。
+- UI 加暂停/继续按钮与状态文案，暂停时冻结计时显示。
+
+**风险 / 待定**
+
+- **mixer 的 pending 残留**：mixer 只吐出"所有源都已投递"的那一段。若在暂停瞬间一个源已投、另一个还没投，恢复后新样本会把暂停前的那半段拼进来，产生一小段跨暂停的杂音。暂停时要显式清掉/flush pending。
+- 好消息是时长能自洽：文件长度按写入样本数算，只要 elapsed 也排除暂停时间，转写用的 `duration` 仍与音频实际长度一致。
+- 暂停期间系统音频仍在投递（只是被丢弃），长时间暂停要不要干脆停掉 capture 值得实测后再定。
+- 暂停时若采集设备被系统切换（拔耳机等），当前实现不会察觉，恢复后可能源已变。
