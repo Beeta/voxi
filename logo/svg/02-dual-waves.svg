@@ -1,8 +1,0 @@
-<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <!-- Dual Waves: 上下两条声波交织(麦克风+系统), 交点处录制红点 -->
-  <g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round">
-    <path d="M 12 42 Q 24 26 36 42 Q 48 58 60 42 Q 72 26 84 42"/>
-    <path d="M 12 58 Q 24 74 36 58 Q 48 42 60 58 Q 72 74 84 58"/>
-  </g>
-  <circle cx="48" cy="50" r="7.5" fill="#ff453a"/>
-</svg>
