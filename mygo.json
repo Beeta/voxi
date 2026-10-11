@@ -2,6 +2,7 @@
   "name": "有听有记Voxi",
   "identifier": "dev.zhaorongcun.voxi",
   "version": "0.1.0",
+  "icon": "logo/icon.png",
   "main": "./cmd/voxi",
   "out": "build",
   "macos": {

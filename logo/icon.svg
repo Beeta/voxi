@@ -1,0 +1,23 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- 有听有记 Voxi 应用图标。
+       由 svg/04-level-meter.svg 派生：补了 macOS 图标所需的圆角矩形底
+       （824×824，圆角 185，四周留 100 边距），并把 currentColor 落实为
+       具体颜色 —— 浅灰电平柱 + 中心红柱（录制主通道）。
+       改这里之后重新生成：rsvg-convert -w 1024 -h 1024 logo/icon.svg -o logo/icon.png -->
+  <defs>
+    <linearGradient id="bg" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0" stop-color="#3a3a3c"/>
+      <stop offset="1" stop-color="#1c1c1e"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  <g transform="translate(172 172) scale(6.8)" fill="#e5e5ea">
+    <rect x="14" y="43" width="6" height="14" rx="3"/>
+    <rect x="25" y="37" width="6" height="26" rx="3"/>
+    <rect x="36" y="30" width="6" height="40" rx="3"/>
+    <rect x="47" y="22" width="6" height="56" rx="3" fill="#ff453a"/>
+    <rect x="58" y="30" width="6" height="40" rx="3"/>
+    <rect x="69" y="37" width="6" height="26" rx="3"/>
+    <rect x="80" y="43" width="6" height="14" rx="3"/>
+  </g>
+</svg>
