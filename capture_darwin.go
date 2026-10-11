@@ -106,7 +106,7 @@ type id = objc.ID
 
 // dbg collects a short trace of what the audio callback saw, written to a
 // log file when a session ends, so the capture can be diagnosed without a
-// debugger. Enabled when MYGO_RECORDER_DEBUG is set.
+// debugger. Enabled when VOXI_DEBUG is set.
 var dbg debugTrace
 
 type debugTrace struct {
@@ -229,7 +229,7 @@ func load() error {
 func mustSym(lib uintptr, name string) uintptr {
 	p, err := purego.Dlsym(lib, name)
 	if err != nil {
-		panic(fmt.Sprintf("recorder: %s: %v", name, err))
+		panic(fmt.Sprintf("voxi: %s: %v", name, err))
 	}
 	return p
 }
@@ -280,7 +280,7 @@ func sendBytes(str id, b *byte, n int) id {
 // background queue; they route to the active capture by a package global,
 // since the app records one session at a time.
 func registerOutputClass() {
-	cls, err := objc.RegisterClass("MyGoRecorderAudioOutput", objc.GetClass("NSObject"),
+	cls, err := objc.RegisterClass("VoxiAudioOutput", objc.GetClass("NSObject"),
 		protocols("SCStreamOutput", "SCStreamDelegate"), nil, []objc.MethodDef{
 			{Cmd: objc.RegisterName("stream:didOutputSampleBuffer:ofType:"),
 				Fn: func(self id, _ objc.SEL, stream, sbuf id, typ int) { onSample(sbuf, typ) }},
