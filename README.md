@@ -5,11 +5,25 @@
 ## 构建与运行
 
 ```sh
-go run .                                                # 开发：直接跑
+go run ./cmd/voxi                                       # 开发：直接跑
 go run github.com/egoist/mygo/cmd/mygo@v0.3.5 build .   # 打包成 .app
 ```
 
 需要 Go 1.27+。mygo 是普通 Go module 依赖，由 `go.mod` 拉取，**不需要克隆 mygo 仓库**。
+
+## 目录结构
+
+```
+cmd/voxi/         程序入口
+internal/app/     界面与状态：录音库、播放器，以及录制 / 转写 / 摘要 / 脑图 / 问答 / 笔记
+internal/audio/   音频捕获、AAC 编码与播放（macOS 部分走 ScreenCaptureKit + purego，无需 cgo）
+internal/store/   录音库的 JSON 索引与数据模型
+internal/asr/     火山引擎「豆包语音」录音文件识别
+internal/llm/     OpenAI 兼容的大模型调用（摘要 / 脑图 / 问答 / 连接验证）
+internal/tunnel/  cloudflared quick tunnel，供 ASR 从公网取音频
+```
+
+`internal/` 下的包不被外部导入；界面代码集中在 `internal/app`，因为它需要访问应用状态的私有字段。
 
 ## 录制
 
