@@ -9,16 +9,17 @@ import (
 	"github.com/zhaorongcun/voxi/internal/store"
 )
 
-// TestSettingsDialogFitsTheWindow renders the real settings dialog at the
-// smallest window the app allows and checks that its body ends inside the
-// window. The body used to be a fixed height, and the scroll does not shrink
-// to fit on its own: the dialog grew past the window and the settings below
-// the fold became unreachable, since the bottom of the body was cut off.
+// TestSettingsDialogFitsTheWindow renders the real settings dialog at a
+// short window, the default one, and a tall one, and checks that its body
+// stays inside the window. The body used to be a fixed height, and the
+// scroll does not shrink to fit on its own: in a short window the dialog
+// grew past it and the settings below the fold became unreachable, since the
+// bottom of the body was cut off.
 //
 // An overflowing body reports the window's bottom edge as its own, so the
 // check is that it ends strictly above it.
 func TestSettingsDialogFitsTheWindow(t *testing.T) {
-	for _, h := range []int{480, 704} {
+	for _, h := range []int{480, 704, 900} {
 		dir := t.TempDir()
 		lib, err := store.OpenStore(dir)
 		if err != nil {
@@ -41,14 +42,18 @@ func TestSettingsDialogFitsTheWindow(t *testing.T) {
 			// notice instead of the dialog.
 			t.Skip("the settings dialog did not render")
 		}
-		bottom := body.Y + body.H
-		if bottom >= float32(h) {
+		if !tt.HasText("版本") {
+			t.Error("the dialog does not say which version it is")
+		}
+		if bottom := body.Y + body.H; bottom >= float32(h) {
 			t.Errorf("window %d high: the settings body ends at %v, so the dialog overflows it",
 				h, bottom)
 		}
-		if want := settingsBodyHeight(float32(h)); body.H != want {
-			t.Errorf("window %d high: the body is %v tall, want %v — it was squeezed",
-				h, body.H, want)
+		// The cap is a maximum: a tall window gets a body only as tall as
+		// the settings in it.
+		if asked := settingsBodyHeight(float32(h)); body.H > asked {
+			t.Errorf("window %d high: the body is %v tall, more than the %v asked for",
+				h, body.H, asked)
 		}
 	}
 }

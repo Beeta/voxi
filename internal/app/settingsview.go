@@ -34,8 +34,19 @@ func (a *app) settingsModal(c *ui.Context, windowH float32) {
 					a.llmSettings(c, s)
 				})
 			})
+			ui.Text(c, a.versionLabel()).FontSize(12).TextColor(muted)
 		})
 	})
+}
+
+// versionLabel is what the dialog's footer shows: the version the app was
+// packaged with, or dev when it carries none (a plain `go run`), so a
+// screenshot or a bug report always says which build it is.
+func (a *app) versionLabel() string {
+	if a.version == "" {
+		return "版本 dev"
+	}
+	return "版本 " + a.version
 }
 
 // settingsSection is a muted heading over its body.
@@ -51,9 +62,10 @@ const (
 	// settingsBodyFallback is what the body was fixed at before it followed
 	// the window: used until the window is measured.
 	settingsBodyFallback = 616
-	// settingsBodyChrome is the panel's insets plus the title row and the
-	// gap under it, with a little slack; measured at 121 for this dialog.
-	settingsBodyChrome = 140
+	// settingsBodyChrome is the panel's insets plus the title row, the
+	// version footer and the gaps between them, with a little slack;
+	// measured at 151 for this dialog.
+	settingsBodyChrome = 170
 	// settingsBodyFloor keeps the body usable in a window too short to show
 	// it all.
 	settingsBodyFloor = 240

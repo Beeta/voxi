@@ -68,6 +68,10 @@ type app struct {
 	pickingDir     bool // a recordings-directory dialog is open
 
 	notify func()
+
+	// version is the app's version, shown in the settings dialog. It is
+	// empty for a build that carries none, such as a plain `go run`.
+	version string
 }
 
 func newApp(st *store.Store, set *settingsStore, rec *audio.Recorder) *app {
@@ -75,6 +79,7 @@ func newApp(st *store.Store, set *settingsStore, rec *audio.Recorder) *app {
 		lib:          st,
 		settings:     set,
 		rec:          rec,
+		version:      mygo.App.Version(),
 		transcribing: map[string]bool{},
 		asrErr:       map[string]string{},
 		summarizing:  map[string]bool{},
