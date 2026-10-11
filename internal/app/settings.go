@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/egoist/mygo"
-	"github.com/zhaorongcun/voxi/internal/tunnel"
+	"github.com/Beeta/voxi/internal/tunnel"
 )
 
 // Settings is the app's persisted configuration: which sources to capture,

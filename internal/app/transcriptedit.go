@@ -2,7 +2,7 @@ package app
 
 import (
 	"github.com/egoist/mygo/ui"
-	"github.com/zhaorongcun/voxi/internal/store"
+	"github.com/Beeta/voxi/internal/store"
 )
 
 // segmentRow renders one transcript segment: a clickable speaker chip, a

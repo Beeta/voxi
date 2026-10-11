@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
-	"github.com/zhaorongcun/voxi/internal/store"
+	"github.com/Beeta/voxi/internal/store"
 )
 
 func (a *app) view(c *ui.Context) {

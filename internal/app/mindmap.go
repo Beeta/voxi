@@ -2,7 +2,7 @@ package app
 
 import (
 	"github.com/egoist/mygo/ui"
-	"github.com/zhaorongcun/voxi/internal/store"
+	"github.com/Beeta/voxi/internal/store"
 )
 
 // mindmapView is the mind-map tab: a generate button, then the outline tree

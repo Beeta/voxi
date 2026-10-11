@@ -3,8 +3,8 @@ package app
 import (
 	"strings"
 
-	"github.com/zhaorongcun/voxi/internal/llm"
-	"github.com/zhaorongcun/voxi/internal/store"
+	"github.com/Beeta/voxi/internal/llm"
+	"github.com/Beeta/voxi/internal/store"
 )
 
 // transcriptText flattens a transcript's segments into newline-joined text for

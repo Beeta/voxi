@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
-	"github.com/zhaorongcun/voxi/internal/llm"
+	"github.com/Beeta/voxi/internal/llm"
 )
 
 // fieldInput is a labeled single-line input.

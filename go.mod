@@ -1,4 +1,4 @@
-module github.com/zhaorongcun/voxi
+module github.com/Beeta/voxi
 
 go 1.27.1
 

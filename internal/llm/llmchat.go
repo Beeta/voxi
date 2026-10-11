@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhaorongcun/voxi/internal/store"
+	"github.com/Beeta/voxi/internal/store"
 )
 
 type chatMessage struct {

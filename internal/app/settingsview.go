@@ -2,7 +2,7 @@ package app
 
 import (
 	"github.com/egoist/mygo/ui"
-	"github.com/zhaorongcun/voxi/internal/tunnel"
+	"github.com/Beeta/voxi/internal/tunnel"
 )
 
 // settingsModal renders the settings dialog over the window while

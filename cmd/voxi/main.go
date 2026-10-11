@@ -6,7 +6,7 @@ package main
 import (
 	"log"
 
-	"github.com/zhaorongcun/voxi/internal/app"
+	"github.com/Beeta/voxi/internal/app"
 )
 
 func main() {

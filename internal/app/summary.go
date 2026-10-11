@@ -2,8 +2,8 @@ package app
 
 import (
 	"github.com/egoist/mygo/ui"
-	"github.com/zhaorongcun/voxi/internal/llm"
-	"github.com/zhaorongcun/voxi/internal/store"
+	"github.com/Beeta/voxi/internal/llm"
+	"github.com/Beeta/voxi/internal/store"
 )
 
 // summaryView is the summary tab: an editable generation prompt on top, then

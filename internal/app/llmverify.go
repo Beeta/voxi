@@ -3,7 +3,7 @@ package app
 import (
 	"strings"
 
-	"github.com/zhaorongcun/voxi/internal/llm"
+	"github.com/Beeta/voxi/internal/llm"
 )
 
 // verifyLLM checks the configured endpoint in the background by sending one

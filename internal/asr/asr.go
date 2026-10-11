@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhaorongcun/voxi/internal/store"
-	"github.com/zhaorongcun/voxi/internal/tunnel"
+	"github.com/Beeta/voxi/internal/store"
+	"github.com/Beeta/voxi/internal/tunnel"
 )
 
 // Transcriber transcribes a recording with Volc Engine's auc (豆包语音)

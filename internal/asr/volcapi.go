@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhaorongcun/voxi/internal/tunnel"
+	"github.com/Beeta/voxi/internal/tunnel"
 )
 
 const (

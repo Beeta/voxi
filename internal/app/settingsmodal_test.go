@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/egoist/mygo/ui"
-	"github.com/zhaorongcun/voxi/internal/audio"
-	"github.com/zhaorongcun/voxi/internal/store"
+	"github.com/Beeta/voxi/internal/audio"
+	"github.com/Beeta/voxi/internal/store"
 )
 
 // TestSettingsDialogFitsTheWindow renders the real settings dialog at a

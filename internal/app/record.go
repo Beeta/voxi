@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
-	"github.com/zhaorongcun/voxi/internal/asr"
-	"github.com/zhaorongcun/voxi/internal/audio"
-	"github.com/zhaorongcun/voxi/internal/store"
+	"github.com/Beeta/voxi/internal/asr"
+	"github.com/Beeta/voxi/internal/audio"
+	"github.com/Beeta/voxi/internal/store"
 )
 
 // startRecording begins capturing the chosen sources to a new file.

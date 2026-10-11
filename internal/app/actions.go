@@ -3,8 +3,8 @@ package app
 import (
 	"time"
 
-	"github.com/zhaorongcun/voxi/internal/audio"
-	"github.com/zhaorongcun/voxi/internal/store"
+	"github.com/Beeta/voxi/internal/audio"
+	"github.com/Beeta/voxi/internal/store"
 )
 
 func (a *app) ping() {

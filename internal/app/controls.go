@@ -2,7 +2,7 @@ package app
 
 import (
 	"github.com/egoist/mygo/ui"
-	"github.com/zhaorongcun/voxi/internal/audio"
+	"github.com/Beeta/voxi/internal/audio"
 )
 
 // recordControl is the sidebar's record widget: a start button, or while a
