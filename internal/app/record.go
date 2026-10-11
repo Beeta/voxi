@@ -26,14 +26,10 @@ func (a *app) startRecording() {
 	if len(srcs) == 0 {
 		return
 	}
-	dir, err := mygo.App.Path(mygo.PathDownloads)
-	if err != nil || dir == "" {
-		dir, _ = mygo.App.Path(mygo.PathHome)
-	}
 	a.mu.Lock()
 	a.recording = true
 	a.mu.Unlock()
-	a.rec.Start(srcs, filepath.Join(dir, defaultFilename()))
+	a.rec.Start(srcs, filepath.Join(recordingsDir(set), defaultFilename()))
 	a.ping()
 }
 

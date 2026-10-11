@@ -65,6 +65,7 @@ type app struct {
 	confirmRetrans bool              // re-transcribe confirmation open
 	showSettings   bool
 	confirmDel     bool
+	pickingDir     bool // a recordings-directory dialog is open
 
 	notify func()
 }
@@ -94,11 +95,11 @@ func newApp(st *store.Store, set *settingsStore, rec *audio.Recorder) *app {
 // Run opens the library and the settings, then runs the app until its window
 // closes. It returns the error from mygo.App.Run.
 func Run() error {
-	st, err := store.OpenStore()
+	set, err := openSettings()
 	if err != nil {
 		return err
 	}
-	set, err := openSettings()
+	st, err := store.OpenStore(recordingsDir(set.snapshot()))
 	if err != nil {
 		return err
 	}

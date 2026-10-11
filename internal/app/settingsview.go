@@ -50,6 +50,7 @@ func (a *app) recordSettings(c *ui.Context, s Settings) {
 		a.switchRow(c, "sys", labelSystem, "扬声器 / 耳机正在播放的声音", s.System, func(v bool) {
 			a.settings.update(func(st *Settings) { st.System = v })
 		})
+		a.recordingsDirRow(c, s)
 	})
 }
 
