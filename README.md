@@ -2,14 +2,114 @@
 
 一个 macOS 会议助手，用 [`mygo`](https://github.com/egoist/mygo) 的 `ui` 包绘制原生界面：录制会议音频，把录音管理成一个资料库，调用语音识别把它转写成带时间线的文字，再在转写之上生成摘要、脑图、问答和笔记。
 
+## 前置准备
+
+录音、播放、笔记都不依赖外部服务，但**转写**和**摘要 / 脑图 / 问答**需要你先备好三样东西：
+
+### 1. 语音识别：豆包语音的 API Key
+
+转写走火山引擎「豆包语音」的录音文件识别（`volc.seedasr.auc`，即豆包录音文件识别模型 2.0）。
+
+1. 打开[豆包语音控制台](https://console.volcengine.com/speech/new/experience/asr)，开通「录音文件识别」；
+2. 在控制台创建一个 **API Key**；
+3. 把它填进本应用设置里的「语音识别（豆包语音）」→ API Key。
+
+只要一个 API Key 就够了，**不需要** App ID 或 Access Token。调用产生的费用与额度由你的火山账号决定。
+
+### 2. cloudflared
+
+豆包这个接口只接受**公网 URL**，不能直接上传文件。所以识别时本应用会先在 `127.0.0.1` 上起一个只绑本机、路径带随机 token 的临时 HTTP 服务，再用 `cloudflared` 的 quick tunnel 把它临时映射到公网，供火山服务器拉取音频，识别结束立刻关闭。
+
+```sh
+brew install cloudflared
+```
+
+装在别处也没关系：GUI 应用不继承终端的 `$PATH`，程序默认按 `/opt/homebrew/bin/cloudflared` 等常见位置查找，找不到时可以在设置里手动填可执行文件路径。
+
+> **隐私提示**：识别期间，这条录音会短暂地出现在一个不可猜测的公网地址上，并被火山服务器下载。隐私敏感的录音请自行斟酌。
+
+### 3. 一个大模型接入点（LLM）
+
+摘要、脑图、问答需要一个 **OpenAI 兼容**的 `chat/completions` 接入点，在设置里填三样：
+
+| 项 | 说明 |
+| --- | --- |
+| Base URL | 填到 `/v1` 这一层即可（如 `https://api.deepseek.com/v1`），程序会自动补上 `/chat/completions`；若你已经填了完整路径，则原样使用 |
+| API Key | 该服务的密钥 |
+| 模型 ID | 如 `deepseek-chat`、`gpt-4o-mini` 等 |
+
+任何 OpenAI 兼容服务都可以：OpenAI、DeepSeek、火山方舟、本地跑 Ollama / LM Studio 等。填好后可以点「验证连接」发一个最小请求实测。**不配也能用**——录音、播放、笔记、转写都不受影响，只是摘要 / 脑图 / 问答会不可用。
+
 ## 构建与运行
 
 ```sh
 go run ./cmd/voxi                                       # 开发：直接跑
-go run github.com/egoist/mygo/cmd/mygo@v0.3.5 build .   # 打包成 .app
+go run github.com/egoist/mygo/cmd/mygo@v0.3.5 dev .     # 开发：热重载
+go run github.com/egoist/mygo/cmd/mygo@v0.3.5 build .   # 打包成 .app 和 .dmg
 ```
 
-需要 Go 1.27+。mygo 是普通 Go module 依赖，由 `go.mod` 拉取，**不需要克隆 mygo 仓库**。
+需要 Go 1.27+。mygo 是普通 Go module 依赖，由 `go.mod` 拉取，**不需要克隆 mygo 仓库**。`go install github.com/egoist/mygo/cmd/mygo@v0.3.5` 之后可以把上面的 `go run ...@v0.3.5` 简写成 `mygo`。
+
+### 打包成 .dmg
+
+在 macOS 上，`mygo build` **会顺带生成 dmg**，不用额外命令：
+
+```sh
+go run github.com/egoist/mygo/cmd/mygo@v0.3.5 build .
+```
+
+产物落在 `mygo.json` 里 `out` 指定的目录（本项目是 `build/`）下的平台子目录中：
+
+```
+build/darwin-arm64/
+  有听有记Voxi.app          12.7 MB
+  有听有记Voxi 0.1.0.dmg     3.8 MB     # 名字是「应用名 版本号.dmg」，版本号取自 mygo.json
+```
+
+dmg 用系统自带的 `hdiutil` 生成，打开后是一个把应用拖进 `Applications` 的窗口（Finder 布局由生成好的 `.DS_Store` 决定）。相关开关：
+
+- 不想要 dmg：加 `-skip-dmg`；
+- 想要通用二进制：`-platform darwin/universal`；
+- dmg 只能在 macOS 上生成，在别的系统上构建会提示跳过。
+
+## 安装与首次运行（未签名）
+
+本项目**没有 Apple Developer ID 签名**，mygo 默认只做 ad-hoc 签名（`codesign` 的 `flags=0x2(adhoc)`，`TeamIdentifier=not set`），因此 Gatekeeper 会拒绝它：
+
+```sh
+$ spctl -a -vvv "build/darwin-arm64/有听有记Voxi.app"
+build/darwin-arm64/有听有记Voxi.app: rejected
+```
+
+从 dmg 或网络下载来的副本还会被系统打上隔离标记（`com.apple.quarantine`），双击时提示「已损坏，无法打开」或「无法验证开发者」。**去掉隔离标记即可正常运行**：
+
+```sh
+xattr -dr com.apple.quarantine /Applications/有听有记Voxi.app
+```
+
+`-d` 是删除指定扩展属性，`-r` 是递归到包内所有文件。如果你是对挂载中的 dmg 里的 app 操作，把路径换成 `/Volumes/.../有听有记Voxi.app`，**注意要在拖进 `Applications` 之后再执行一次**，因为复制到新位置会保留隔离标记。
+
+也可以走图形界面：在「系统设置 → 隐私与安全性」底部点「仍要打开」，但每个版本都要点一次，命令行更省事。
+
+> 自己构建、直接从 `build/` 目录运行的话，本地产物通常不带隔离标记，可以直接打开。
+
+## 系统权限
+
+应用需要以下权限，都是 macOS 的 TCC 隐私授权，**首次触发时系统会弹窗**，也可以在「系统设置 → 隐私与安全性」里手动开关：
+
+| 权限 | 什么时候需要 | 授予方式 |
+| --- | --- | --- |
+| **屏幕录制** | **首次点「录制」时就会请求，即使只勾了麦克风**（见下） | 系统设置 → 隐私与安全性 → 屏幕录制 → 勾选「有听有记Voxi」，**然后重启应用** |
+| **麦克风** | 勾选了「麦克风」音频源时 | 系统设置 → 隐私与安全性 → 麦克风 → 勾选「有听有记Voxi」 |
+| **本地网络** | 一般不需要 | 临时文件服务只绑 `127.0.0.1`，回环流量不算本地网络；若系统仍弹出请求，允许即可 |
+
+**为什么只录麦克风也要屏幕录制权限？** 音频捕获走 ScreenCaptureKit，而它的 API 模型是「先拿到屏幕内容（`SCShareableContent`）→ 用它构造内容过滤器 → 在过滤器上开流并勾选音频」。所以代码在建立捕获流之前必须拿到显示器列表，这一步就会触发屏幕录制授权，与你要不要系统声音无关。被拒绝时的报错是「无法访问屏幕内容（需要"屏幕录制"权限）」。
+
+**授予屏幕录制权限后必须重启应用**，这是 macOS 的要求，当前进程内不会生效。
+
+**重新构建后可能要重新授权。** 因为只做 ad-hoc 签名，系统的授权记录绑在具体签名（cdhash）上，每次重新构建都会产生新的签名，系统可能把它当成另一个程序。遇到「明明授权过了却还是失败」时，去系统设置里把旧条目删掉（选中后按 `-`），再重新授权一次。
+
+**排障**：设置环境变量 `VOXI_DEBUG=1` 启动，音频捕获的详细日志（每个源是否正常出帧、格式、失败原因）会追加写入 `~/voxi-debug.log`。
 
 ## 目录结构
 
@@ -29,7 +129,9 @@ internal/tunnel/  cloudflared quick tunnel，供 ASR 从公网取音频
 
 左侧边栏顶部有「录制」按钮，下面一行小字显示当前要捕获的音频源；音频源——麦克风，以及系统输出（扬声器或耳机正在播放的声音）——改在右上角齿轮打开的设置里勾选。点击录制开始捕获所选音频源，点击停止结束。所选音频源会被混合成一个 AAC（`.m4a`）文件，并通过 `ExtAudioFile`（AudioToolbox，经 purego 驱动——无需 cgo）边录边编码，而不是全部堆在内存里，因此无论录多久内存占用都保持平稳。输出为 48 kHz 立体声、128 kbps，体积只有未压缩 WAV 的一小部分。
 
-音频捕获的排障日志默认关闭；设置环境变量 `VOXI_DEBUG=1` 会把它追加写入 `~/voxi-debug.log`。
+音频捕获使用 ScreenCaptureKit，仅支持 macOS；混入麦克风需要 macOS 15 及以上。在其他平台上窗口依然会打开，并说明无法捕获。
+
+该应用会录制麦克风和系统音频，因此它的应用包声明了 `NSMicrophoneUsageDescription` 和 `NSAudioCaptureUsageDescription`（见 `mygo.json`）。macOS 只会把这些权限授予 `Info.plist` 中带有相应用途说明的应用包，所以录制功能需在 `mygo build` 产出的 `.app` 中才能工作——裸 `go run` 出来的二进制不行，系统会在它访问麦克风时将其终止。请用 `mygo build`（或 `dev`）来测试录制。
 
 ## 设置
 
@@ -45,28 +147,10 @@ internal/tunnel/  cloudflared quick tunnel，供 ASR 从公网取音频
 
 左侧是录音库，右侧是选中录音的详情。详情页顶部是可拖动进度条的播放器，下面是分页签：
 
-- **转写**：调用豆包语音把录音识别成带时间戳的分段文字；点时间戳跳转播放、点文字就地编辑（自动保存）、点说话人改名（可选「仅此条」或「全部相同」）；顶部「重新识别」可重跑（会覆盖当前转写）。录音文件原样（`.m4a`）提交，不做转码（见下）。
+- **转写**：调用豆包语音把录音识别成带时间戳的分段文字；点时间戳跳转播放、点文字就地编辑（自动保存）、点说话人改名（可选「仅此条」或「全部相同」）；顶部「重新识别」可重跑（会覆盖当前转写）。录音文件原样（`.m4a`）提交，不做转码。
 - **摘要**：把转写发给大模型，生成「概览 + 关键要点 + 待办事项」，生成指令（prompt）可编辑。
 - **脑图**：把转写整理成可展开/折叠的大纲树。
 - **问答**：基于转写内容多轮提问，回答流式逐字返回。
 - **笔记**：每条录音一段自由文本，自动保存。
 
 录音库、转写、摘要、脑图、问答和笔记都持久化在应用数据目录的 `recordings.json` 里；重新识别后，已生成的摘要和脑图会被标记为「可能过期」，提示重新生成。
-
-> 识别与大模型都已接入真实服务，在设置里配置：
->
-> - **语音识别**用火山引擎「豆包语音」的录音文件识别（auc）。该接口从公网 URL 拉取音频，所以识别时会在本地起一个只绑 `127.0.0.1`、路径带随机 token 的临时 HTTP 服务，再用 [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) quick tunnel 临时映射到公网供火山拉取，识别完即关闭。**需预先安装 cloudflared**（`brew install cloudflared`）；GUI `.app` 不继承终端 `$PATH`，默认按 `/opt/homebrew/bin/cloudflared` 等常见位置查找，装在别处可在设置里指定路径。注意：识别期间录音会短暂地在一个不可猜测的公网地址上可被取到、并由火山服务器下载，隐私敏感的录音请斟酌。
-> - **大模型**走设置里填的 OpenAI 兼容接入点（摘要 / 脑图非流式，问答流式）。
-
-音频捕获使用 ScreenCaptureKit，仅支持 macOS；混入麦克风需要 macOS 15 及以上。在其他平台上窗口依然会打开，并说明无法捕获。
-
-以实时热重载方式开发，或打包：
-
-```sh
-go run github.com/egoist/mygo/cmd/mygo@v0.3.5 dev .
-go run github.com/egoist/mygo/cmd/mygo@v0.3.5 build .
-```
-
-`go install github.com/egoist/mygo/cmd/mygo@v0.3.5` 之后可以直接写成 `mygo dev .` / `mygo build .`。
-
-该应用会录制麦克风和系统音频，因此它的应用包声明了 `NSMicrophoneUsageDescription` 和 `NSAudioCaptureUsageDescription`（见 `mygo.json`）。macOS 只会把这些权限授予 `Info.plist` 中带有相应用途说明的应用包，所以录制功能需在 `mygo build` 产出的 `.app` 中才能工作——裸 `go run` 出来的二进制不行，系统会在它访问麦克风时将其终止。请用 `mygo build`（或 `dev`）来测试录制。
