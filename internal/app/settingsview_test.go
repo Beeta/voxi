@@ -1,6 +1,81 @@
 package app
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+
+	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/ui"
+	"github.com/Beeta/voxi/internal/audio"
+	"github.com/Beeta/voxi/internal/store"
+)
+
+// newSettingsApp is an app over a settings file under t.TempDir(), so a test
+// never reads or writes the user's own.
+func newSettingsApp(t *testing.T) (*app, *settingsStore) {
+	t.Helper()
+	dir := t.TempDir()
+	lib, err := store.OpenStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	set := &settingsStore{
+		path: filepath.Join(dir, "settings.json"),
+		s:    &Settings{Mic: true, System: true},
+	}
+	return newApp(lib, set, audio.NewRecorder()), set
+}
+
+// TestAppearanceControlSavesTheChoice clicks 浅色 in the settings dialog and
+// wants the choice saved and handed to the framework.
+//
+// A segmented control writes the chosen index into the bound value at the
+// end of the pass it was clicked in, so the section has to ask Changed: a
+// copy of the saved index compared right after the call is still the old one
+// and the click goes nowhere. That is why this test drives the real control
+// through a real click — asking appearanceIndex alone would not catch it.
+func TestAppearanceControlSavesTheChoice(t *testing.T) {
+	a, set := newSettingsApp(t)
+	var handed []mygo.ThemeSource
+	a.setTheme = func(s mygo.ThemeSource) { handed = append(handed, s) }
+
+	tt := ui.NewTester(func(c *ui.Context) {
+		a.appearanceSettings(c, set.snapshot())
+	}, 480, 200)
+
+	if err := tt.Click("浅色"); err != nil {
+		t.Fatal(err)
+	}
+	if got := set.snapshot().Appearance; got != "light" {
+		t.Errorf("clicking 浅色 saved appearance %q, want %q", got, "light")
+	}
+	if len(handed) != 1 || handed[0] != mygo.ThemeLight {
+		t.Errorf("the framework was handed %v, want one %q", handed, mygo.ThemeLight)
+	}
+}
+
+// TestSwitchRowSavesTheToggle clicks the microphone switch in the settings
+// dialog and wants the toggle saved. Same trap as the appearance control: a
+// switch applies its click at the end of the pass, so the new value is only
+// there to read through Changed.
+func TestSwitchRowSavesTheToggle(t *testing.T) {
+	const width = 480
+	a, set := newSettingsApp(t)
+	tt := ui.NewTester(func(c *ui.Context) {
+		a.recordSettings(c, set.snapshot())
+	}, width, 200)
+
+	// The switch is the right end of the row: the description names the row,
+	// and the switch sits past the text column that fills it.
+	row, ok := tt.Find("默认输入设备（麦克风、耳机麦）")
+	if !ok {
+		t.Fatal("the microphone row did not render")
+	}
+	tt.ClickAt(width-10, row.Y+row.H/2)
+	if set.snapshot().Mic {
+		t.Error("clicking the microphone switch left it on")
+	}
+}
 
 // TestSettingsBodyHeight pins the body height the settings dialog asks for:
 // it shrinks with the window so the dialog fits, falls back to the value it

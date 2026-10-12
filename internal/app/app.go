@@ -75,6 +75,12 @@ type app struct {
 
 	notify func()
 
+	// setTheme hands the appearance to the framework, which repaints every
+	// window with it. A field rather than a direct call so a test can watch
+	// the choice: the real call must run on the main thread, and a test
+	// process has no event loop to run it on.
+	setTheme func(mygo.ThemeSource)
+
 	// version is the app's version, shown in the settings dialog. It is
 	// empty for a build that carries none, such as a plain `go run`.
 	version string
@@ -97,6 +103,7 @@ func newApp(st *store.Store, set *settingsStore, rec *audio.Recorder) *app {
 		promptOpen:   map[string]bool{},
 		mdCache:      map[string]mdEntry{},
 		editSeg:      -1,
+		setTheme:     mygo.Theme.SetSource,
 	}
 	if recs := st.Snapshot(); len(recs) > 0 {
 		a.selected = recs[0].ID

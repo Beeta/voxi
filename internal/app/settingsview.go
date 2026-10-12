@@ -1,7 +1,6 @@
 package app
 
 import (
-	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/Beeta/voxi/internal/tunnel"
 )
@@ -95,9 +94,11 @@ func (a *app) appearanceSettings(c *ui.Context, s Settings) {
 				ui.Text(c, "主题").FontSize(14).TextColor(ink)
 				ui.Text(c, "跟随系统，或固定为浅色或深色").FontSize(12).TextColor(muted)
 			})
+			// Changed is what applies the click and reports it: the control
+			// writes the chosen index at the end of the pass, so comparing a
+			// copy taken before the call would always find it unchanged.
 			idx := appearanceIndex(s.Appearance)
-			ui.Segmented(c.Key("appearance"), &idx, appearanceLabels...)
-			if idx != appearanceIndex(s.Appearance) {
+			if ui.Segmented(c.Key("appearance"), &idx, appearanceLabels...).Changed() {
 				a.setAppearance(appearanceNames[idx])
 			}
 		})
@@ -108,7 +109,7 @@ func (a *app) appearanceSettings(c *ui.Context, s Settings) {
 // repaints every window with it.
 func (a *app) setAppearance(name string) {
 	a.settings.update(func(st *Settings) { st.Appearance = name })
-	mygo.Theme.SetSource(appearanceSource(name))
+	a.setTheme(appearanceSource(name))
 }
 
 // recordSettings toggles the capture sources.
@@ -131,9 +132,10 @@ func (a *app) switchRow(c *ui.Context, key, title, desc string, on bool, set fun
 			ui.Text(c, title).FontSize(14).TextColor(ink)
 			ui.Text(c, desc).FontSize(12).TextColor(muted)
 		})
+		// As in appearanceSettings: the switch applies the click at the end
+		// of the pass, so only Changed sees the new value.
 		v := on
-		ui.Switch(c.Key(key+"-sw"), &v)
-		if v != on {
+		if ui.Switch(c.Key(key+"-sw"), &v).Changed() {
 			set(v)
 		}
 	})
