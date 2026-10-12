@@ -85,6 +85,10 @@ type app struct {
 	importFailOpen bool
 	importFailMsg  string
 
+	// mdCache holds parsed Markdown, keyed by the text it was parsed from,
+	// so a summary is not reparsed on every frame.
+	mdCache map[string]mdEntry
+
 	notify func()
 
 	// version is the app's version, shown in the settings dialog. It is
@@ -107,6 +111,7 @@ func newApp(st *store.Store, set *settingsStore, rec *audio.Recorder) *app {
 		draftQ:       map[string]string{},
 		draftPrompt:  map[string]string{},
 		promptOpen:   map[string]bool{},
+		mdCache:      map[string]mdEntry{},
 		editSeg:      -1,
 	}
 	if recs := st.Snapshot(); len(recs) > 0 {

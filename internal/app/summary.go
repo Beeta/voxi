@@ -1,10 +1,30 @@
 package app
 
 import (
+	"strings"
+
 	"github.com/egoist/mygo/ui"
 	"github.com/Beeta/voxi/internal/llm"
+	"github.com/Beeta/voxi/internal/md"
 	"github.com/Beeta/voxi/internal/store"
 )
+
+// mdPalette is how a summary's Markdown is drawn, in the app's palette.
+var mdPalette = md.Palette{
+	Text:    ink,
+	Muted:   muted,
+	Accent:  accent,
+	Surface: cardBg2,
+	Border:  line,
+	Size:    14,
+}
+
+// mdEntry is a parsed Markdown document, kept so the view does not reparse
+// it on every frame.
+type mdEntry struct {
+	src    string
+	blocks []md.Block
+}
 
 // summaryView is the summary tab: an editable generation prompt on top, then
 // the generated summary (overview + highlights + action items) below.
@@ -85,21 +105,56 @@ func (a *app) summaryPrompt(c *ui.Context, rec store.Recording, busy bool) {
 	})
 }
 
-// summaryBody renders a generated summary.
+// summaryBody renders a generated summary. A reply that parsed as the
+// summary's shape has three parts and is drawn in three sections; anything
+// else landed whole in Overview, which is drawn as the Markdown document it
+// most likely is.
 func (a *app) summaryBody(c *ui.Context, rec store.Recording) {
 	sm := rec.Summary
 	ui.Column(c).Gap(16).Children(func() {
 		if sm.Stale {
 			ui.Text(c, "⚠ 转写已更新，摘要可能过期，建议重新生成。").FontSize(12).TextColor(recRed)
 		}
-		section(c, "概览", func() {
-			ui.Text(c, sm.Overview).FontSize(14).TextColor(ink).Selectable()
-		})
+		if len(sm.Highlights) == 0 && len(sm.Actions) == 0 {
+			a.markdown(c, rec.ID+":ov", sm.Overview)
+			return
+		}
+		section(c, "概览", func() { a.markdown(c, rec.ID+":ov", sm.Overview) })
 		if len(sm.Highlights) > 0 {
-			section(c, "关键要点", func() { bulletList(c, sm.Highlights) })
+			section(c, "关键要点", func() { a.markdown(c, rec.ID+":hl", bulletSource(sm.Highlights)) })
 		}
 		if len(sm.Actions) > 0 {
-			section(c, "待办事项", func() { bulletList(c, sm.Actions) })
+			section(c, "待办事项", func() { a.markdown(c, rec.ID+":ac", bulletSource(sm.Actions)) })
 		}
 	})
+}
+
+// bulletSource writes items as a Markdown list, so they come out with the
+// same bullets and inline styles as the rest of the document. Continuation
+// lines are indented to stay part of their item.
+func bulletSource(items []string) string {
+	var b strings.Builder
+	for _, it := range items {
+		for i, line := range strings.Split(strings.TrimSpace(it), "\n") {
+			if i == 0 {
+				b.WriteString("- ")
+			} else {
+				b.WriteString("  ")
+			}
+			b.WriteString(line)
+			b.WriteString("\n")
+		}
+	}
+	return b.String()
+}
+
+// markdown draws src as Markdown. The view runs every frame, so the parse is
+// cached under key and redone only when src changes.
+func (a *app) markdown(c *ui.Context, key, src string) {
+	e, ok := a.mdCache[key]
+	if !ok || e.src != src {
+		e = mdEntry{src: src, blocks: md.Parse(src)}
+		a.mdCache[key] = e
+	}
+	md.Render(c, e.blocks, mdPalette)
 }

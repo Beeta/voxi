@@ -17,16 +17,3 @@ func section(c *ui.Context, title string, body func()) {
 		body()
 	})
 }
-
-// bulletList renders items as selectable bullet points.
-func bulletList(c *ui.Context, items []string) {
-	ui.Column(c).Gap(6).Children(func() {
-		for i, it := range items {
-			it := it
-			ui.Row(c.Key(i)).Gap(8).AlignItems(ui.Start).Children(func() {
-				ui.Text(c, "•").FontSize(14).TextColor(accent)
-				ui.Text(c, it).FontSize(14).TextColor(ink).Grow(1).Selectable()
-			})
-		}
-	})
-}
