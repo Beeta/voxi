@@ -42,13 +42,20 @@ func (a *app) segmentRow(c *ui.Context, rec store.Recording, i int, seg store.Se
 		}
 		if a.editSeg == i {
 			txt := seg.Text
-			ta := ui.TextArea(c.Key("edit"), &txt).Lines(1, 6).Grow(1).FontSize(14).TextColor(ink)
+			// MinHeight lifts the floor a text area carries (three lines), so
+			// the box is as tall as the text in it — one line, for most
+			// segments — and grows with what is typed.
+			ta := ui.TextArea(c.Key("edit"), &txt).Lines(1, 6).MinHeight(0).Grow(1).FontSize(14).TextColor(ink)
+			ta.AutoFocus()
 			if ta.Changed() {
 				a.lib.SetSegmentText(rec.ID, i, txt)
 			}
-			done := ui.ButtonBase(c.Key("done")).Padding(4, 10).Radius(8).Center().Background(cardBg2)
-			done.Children(func() { ui.Text(c, "完成").FontSize(12).Bold().TextColor(accent) })
-			if done.Clicked() {
+			// There is nothing to confirm: the text is saved as it is typed,
+			// so the edit ends when the editor lets go of the focus — a click
+			// elsewhere, or Tab away — or on Escape. That is what the 完成
+			// button used to be for, and it cost a click and a whole column
+			// of the row.
+			if !ta.FocusWithin() || ta.Shortcut(0, ui.KeyEscape) {
 				a.editSeg = -1
 			}
 		} else {
