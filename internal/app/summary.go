@@ -50,7 +50,7 @@ func (a *app) summaryPrompt(c *ui.Context, rec store.Recording, busy bool) {
 			if ta.Changed() {
 				a.draftPrompt[rec.ID] = cur
 			}
-			ui.Text(c, "指令决定内容怎么组织。输出结构固定为「概览 / 关键要点 / 待办事项」三段，好让下面分块显示。").
+			ui.Text(c, "指令会原样发给模型，不加任何东西。返回的 JSON 含 overview / highlights / actions 时下面分块显示，其他格式整段显示。").
 				FontSize(11).TextColor(muted)
 		}
 		ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {

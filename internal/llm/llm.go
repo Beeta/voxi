@@ -8,7 +8,12 @@ import (
 )
 
 // DefaultSummaryPrompt is the editable instruction shown in the summary tab.
-const DefaultSummaryPrompt = "请用简洁的中文总结这段录音：先给一句话概览，再列出关键要点，最后列出需要跟进的待办事项。"
+// It spells out the output shape itself, because nothing is appended to the
+// instruction on the way out: the tab renders overview/highlights/actions as
+// sections, and a reply in any other shape is shown as one block of text.
+const DefaultSummaryPrompt = "请用简洁的中文总结这段录音：先给一句话概览，再列出关键要点，最后列出需要跟进的待办事项。\n\n" +
+	"只输出 JSON，不要解释、不要代码块标记，模式为：" +
+	`{"overview": "一句话概览", "highlights": ["关键要点"], "actions": ["待办事项"]}`
 
 // Client talks to an OpenAI-compatible chat-completions endpoint configured
 // in settings (Base URL / API Key / model).
@@ -23,13 +28,11 @@ func New(baseURL, apiKey, model string) Client {
 	return Client{baseURL: baseURL, apiKey: apiKey, model: model}
 }
 
-// Summarize condenses the transcript into overview/highlights/actions. It asks
-// the model for JSON and parses it, falling back to the raw reply as overview.
-//
-// The instruction goes in the system message rather than in front of the user
-// turn: the transcript behind it can run to tens of thousands of words, and an
-// instruction buried ahead of that reads as context, not as the instruction it
-// was meant to replace.
+// Summarize condenses the transcript with the caller's instruction. That
+// instruction is the whole system message — nothing is appended to it — so the
+// output shape is whatever it asks for. A reply that parses as the summary's
+// JSON shape fills its three sections; anything else is shown as one block of
+// text.
 func (c Client) Summarize(transcript, prompt string) (*store.Summary, error) {
 	out, err := c.complete(summarizeMessages(transcript, prompt))
 	if err != nil {
@@ -42,18 +45,15 @@ func (c Client) Summarize(transcript, prompt string) (*store.Summary, error) {
 	return &sm, nil
 }
 
-// summarizeMessages builds the chat messages for Summarize. The user's
-// instruction leads the system message; the JSON schema follows it, since the
-// summary tab renders those three fields and cannot show an arbitrary shape.
+// summarizeMessages builds the chat messages for Summarize: the instruction
+// verbatim as the system message, the transcript alone as the user one.
 func summarizeMessages(transcript, prompt string) []chatMessage {
 	if prompt == "" {
 		prompt = DefaultSummaryPrompt
 	}
-	sys := prompt + "\n\n只输出 JSON，不要解释、不要代码块标记，模式为：" +
-		`{"overview": "一句话概览", "highlights": ["关键要点"], "actions": ["待办事项"]}`
 	return []chatMessage{
-		{Role: "system", Content: sys},
-		{Role: "user", Content: "转写内容：\n" + transcript},
+		{Role: "system", Content: prompt},
+		{Role: "user", Content: transcript},
 	}
 }
 
