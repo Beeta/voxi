@@ -82,18 +82,36 @@ func (a *app) transcribe(rec store.Recording) {
 	a.mu.Unlock()
 	a.ping()
 	go func() {
-		t, err := asr.New(key, set.CloudflaredPath).Transcribe(rec.File, rec.Duration)
+		err := guard(func() error {
+			t, err := asr.New(key, set.CloudflaredPath).Transcribe(rec.File, rec.Duration)
+			if err != nil {
+				return err
+			}
+			a.lib.SetTranscript(rec.ID, t)
+			return nil
+		})
 		a.mu.Lock()
 		delete(a.transcribing, rec.ID)
 		if err != nil {
 			a.asrErr[rec.ID] = err.Error()
 		}
 		a.mu.Unlock()
-		if err == nil {
-			a.lib.SetTranscript(rec.ID, t)
-		}
 		a.ping()
 	}()
+}
+
+// guard runs fn, turning a panic into an error. A background task that panics
+// takes the whole window down with it and leaves the user nothing to report —
+// no window, no message, no crash log. A recording whose file name held a
+// space did exactly that to transcription, through the ServeMux pattern the
+// name was pasted into. The panic's text is kept, so the bug still shows.
+func guard(fn func() error) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("内部错误：%v", r)
+		}
+	}()
+	return fn()
 }
 
 // doDelete trashes the audio file and drops the recording from the library.

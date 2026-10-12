@@ -77,7 +77,13 @@ func StartFileServer(filePath string) (int, string, func(context.Context) error,
 	if err != nil {
 		return 0, "", nil, err
 	}
-	route := "/" + token + "/" + filepath.Base(filePath)
+	// The route names the file "audio" plus its extension instead of using
+	// the file's own name. Go 1.22's ServeMux reads a space in a pattern as
+	// the separator before the method, and panics on the rest of it: a file
+	// called "2026-10-12 16_03_03.mp3" brought the whole app down, since
+	// transcription runs in a goroutine. The extension is kept, filtered, as
+	// the service reads the format from the URL as well as from the request.
+	route := "/" + token + "/audio" + safeExt(filePath)
 	mux := http.NewServeMux()
 	mux.HandleFunc(route, func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, filePath)
@@ -85,6 +91,22 @@ func StartFileServer(filePath string) (int, string, func(context.Context) error,
 	srv := &http.Server{Addr: fmt.Sprintf("127.0.0.1:%d", port), Handler: mux}
 	go func() { _ = srv.ListenAndServe() }()
 	return port, route, srv.Shutdown, nil
+}
+
+// safeExt returns path's extension lowercased when it is short and holds only
+// letters and digits, and "" otherwise, so the route is a valid ServeMux
+// pattern whatever the file is called.
+func safeExt(path string) string {
+	ext := strings.ToLower(filepath.Ext(path))
+	if len(ext) < 2 || len(ext) > 10 {
+		return ""
+	}
+	for _, r := range ext[1:] {
+		if (r < 'a' || r > 'z') && (r < '0' || r > '9') {
+			return ""
+		}
+	}
+	return ext
 }
 
 var (

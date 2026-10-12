@@ -1,0 +1,60 @@
+package tunnel
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+)
+
+// TestStartFileServerServesAwkwardNames covers files whose names would not
+// survive being pasted into a route. The route used to carry the file's own
+// name, and Go 1.22's ServeMux reads a space in a pattern as the method
+// separator: "2026-10-12 16_03_03.mp3" made HandleFunc panic, which took the
+// whole app down, since transcription runs in a goroutine.
+func TestStartFileServerServesAwkwardNames(t *testing.T) {
+	names := []string{
+		"2026-10-12 16_03_03.mp3", // spaces
+		"会议 记录.m4a",                // spaces and non-ASCII
+		"a{b}c.wav",               // ServeMux wildcard syntax
+		"weird.",                  // empty extension
+		"noext",                   // no extension
+	}
+	for _, name := range names {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), name)
+			if err := os.WriteFile(path, []byte("audio"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			port, route, shutdown, err := StartFileServer(path)
+			if err != nil {
+				t.Fatalf("StartFileServer: %v", err)
+			}
+			defer shutdown(context.Background())
+			if port == 0 || route == "" {
+				t.Fatalf("StartFileServer returned port %d, route %q", port, route)
+			}
+
+			client := &http.Client{Timeout: 5 * time.Second}
+			resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d%s", port, route))
+			if err != nil {
+				t.Fatalf("GET %s: %v", route, err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("GET %s = %d, want 200", route, resp.StatusCode)
+			}
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(body) != "audio" {
+				t.Errorf("the served file holds %q, want the file's contents", body)
+			}
+		})
+	}
+}

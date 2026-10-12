@@ -1,6 +1,10 @@
 package app
 
-import "testing"
+import (
+	"errors"
+	"strings"
+	"testing"
+)
 
 // TestImportable pins the format list to what both halves of the app accept.
 // The player opens flac, aiff, opus and caf as well, and the ASR service takes
@@ -55,5 +59,24 @@ func TestImportName(t *testing.T) {
 	// back to a timestamp rather than an empty row.
 	if got := importName(".m4a"); got == "" {
 		t.Error("importName(\".m4a\") is empty, want a fallback name")
+	}
+}
+
+// TestGuardTurnsPanicIntoError covers the boundary that keeps a background
+// task's panic from taking the window down with it.
+func TestGuardTurnsPanicIntoError(t *testing.T) {
+	err := guard(func() error { panic("boom") })
+	if err == nil {
+		t.Fatal("guard returned nil for a panicking function")
+	}
+	if !strings.Contains(err.Error(), "boom") {
+		t.Errorf("guard returned %q, want it to carry the panic's text", err)
+	}
+	if err := guard(func() error { return nil }); err != nil {
+		t.Errorf("guard returned %v for a function that did not panic", err)
+	}
+	sentinel := errors.New("asr down")
+	if err := guard(func() error { return sentinel }); !errors.Is(err, sentinel) {
+		t.Errorf("guard returned %v, want the function's own error through", err)
 	}
 }
