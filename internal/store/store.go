@@ -247,6 +247,48 @@ func copyFile(src, dst string) error {
 	return out.Close()
 }
 
+// ImportFile copies src into the recordings directory and returns the path to
+// register, which Add turns into a library-relative reference. A file that
+// already lives in that directory is returned as it is: importing what the
+// library already holds should not put a second copy on disk. A name already
+// taken gets " (n)" appended, since copying over an existing recording would
+// leave two entries playing the same audio.
+func (s *Store) ImportFile(src string) (string, error) {
+	abs, err := filepath.Abs(src)
+	if err != nil {
+		abs = src
+	}
+	s.mu.Lock()
+	root := s.root
+	s.mu.Unlock()
+	if rel, err := filepath.Rel(root, abs); err == nil && isInside(rel) {
+		return abs, nil
+	}
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		return "", err
+	}
+	dst := uniquePath(filepath.Join(root, filepath.Base(abs)))
+	if err := copyFile(abs, dst); err != nil {
+		return "", err
+	}
+	return dst, nil
+}
+
+// uniquePath returns path, or path with " (n)" before its extension when that
+// is already taken.
+func uniquePath(path string) string {
+	ext := filepath.Ext(path)
+	stem := strings.TrimSuffix(path, ext)
+	candidate := path
+	for i := 1; i <= 999; i++ {
+		if _, err := os.Stat(candidate); os.IsNotExist(err) {
+			return candidate
+		}
+		candidate = fmt.Sprintf("%s (%d)%s", stem, i, ext)
+	}
+	return candidate
+}
+
 // snapshot returns a copy of the recordings, newest first, so the UI can
 // render without holding the lock. File is resolved to an absolute path.
 func (s *Store) Snapshot() []Recording {

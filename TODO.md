@@ -2,25 +2,6 @@
 
 后续要做的功能。每条记录：现状（已有什么）、要做的事、风险与待定问题。
 
-## 1. 支持直接导入音频文件
-
-**现状**
-
-- `asr.Transcribe(path, duration)` 只吃文件路径，`detectFormat` 已支持 `wav / mp3 / ogg / spx / amr / aac / m4a`，默认按 m4a 处理（`internal/asr/asr.go`）。
-- 播放走 macOS `AVAudioPlayer`（`internal/audio/player_darwin.go`），上述格式同样能播。
-- `store.Add(name, file, duration)` 登记一条记录，`File` 存绝对路径。
-
-**要做的事**
-
-- 加"导入音频"入口（录音页或侧边栏），选文件 → 探测时长 → 登记记录 → 复用现有转写流程。
-- 时长可用 `AVAudioPlayer.Duration` 拿（需先 `loadPlayer`），不必自己解析容器。
-
-**风险 / 待定**
-
-- 复制进库目录 vs 原地引用：原地引用时用户删掉/移动源文件后记录就失效；建议默认复制，库目录由第 3 条配置决定。
-- 大文件走 cloudflared 隧道上传的耗时与稳定性，需要给明确进度和超时提示。
-- 非音频/损坏文件、超长文件的报错路径要覆盖。
-
 ## 2. 转写页顶部显示相关人（可折叠）
 
 **现状**

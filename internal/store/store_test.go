@@ -166,3 +166,76 @@ func TestSameDirFollowsSymlinksAndTrailingSlash(t *testing.T) {
 		t.Fatal("SameDir reported two different directories as equal")
 	}
 }
+
+func TestImportFileCopiesIntoTheLibrary(t *testing.T) {
+	s, root := newTestStore(t)
+	src := filepath.Join(t.TempDir(), "meeting.m4a")
+	if err := os.WriteFile(src, []byte("audio"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	dst, err := s.ImportFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(root, "meeting.m4a"); dst != want {
+		t.Fatalf("ImportFile returned %q, want %q", dst, want)
+	}
+	if b, err := os.ReadFile(dst); err != nil || string(b) != "audio" {
+		t.Errorf("the copy holds %q (%v), want the source's contents", b, err)
+	}
+	if _, err := os.Stat(src); err != nil {
+		t.Errorf("the source file is gone: %v", err)
+	}
+	// The registered path is inside the library, so the index keeps it
+	// relative and survives the recordings directory moving.
+	s.Add("meeting", dst, 1)
+	if got := s.recs[0].File; got != "meeting.m4a" {
+		t.Errorf("stored %q, want %q", got, "meeting.m4a")
+	}
+}
+
+func TestImportFileLeavesAFileAlreadyInsideAlone(t *testing.T) {
+	s, root := newTestStore(t)
+	src := touch(t, filepath.Join(root, "inside.m4a"))
+
+	dst, err := s.ImportFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dst != src {
+		t.Fatalf("ImportFile returned %q, want the file left at %q", dst, src)
+	}
+}
+
+// TestImportFileDoesNotOverwrite covers the collision that would otherwise
+// leave two library entries playing one file: the copy takes a free name and
+// the recording already there keeps its contents.
+func TestImportFileDoesNotOverwrite(t *testing.T) {
+	s, root := newTestStore(t)
+	existing := filepath.Join(root, "same.m4a")
+	if err := os.WriteFile(existing, []byte("original"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	src := filepath.Join(t.TempDir(), "same.m4a")
+	if err := os.WriteFile(src, []byte("imported"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	dst, err := s.ImportFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dst == existing {
+		t.Fatal("ImportFile wrote over the recording already in the library")
+	}
+	if want := filepath.Join(root, "same (1).m4a"); dst != want {
+		t.Fatalf("ImportFile returned %q, want %q", dst, want)
+	}
+	if b, err := os.ReadFile(existing); err != nil || string(b) != "original" {
+		t.Errorf("the existing recording now holds %q (%v), want it untouched", b, err)
+	}
+	if b, err := os.ReadFile(dst); err != nil || string(b) != "imported" {
+		t.Errorf("the copy holds %q (%v), want the imported contents", b, err)
+	}
+}

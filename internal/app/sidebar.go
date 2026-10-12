@@ -38,6 +38,7 @@ func (a *app) view(c *ui.Context) {
 	// time the dialog's button is clicked.
 	a.renameRecModal(c)
 	a.deleteConfirm(c)
+	a.importFailureDialog(c)
 }
 
 func (a *app) sidebar(c *ui.Context) {
@@ -45,6 +46,7 @@ func (a *app) sidebar(c *ui.Context) {
 		ui.Column(c).Padding(20, 20, 14).Gap(12).Children(func() {
 			ui.Row(c).AlignItems(ui.Center).Children(func() {
 				ui.Text(c, "录音").FontSize(20).Bold().TextColor(ink).Grow(1)
+				a.importButton(c)
 				gear := ui.ButtonBase(c.Key("open-settings")).Padding(6).Radius(8).Center().Background(cardBg2)
 				gear.Children(func() { ui.Icon(c, iconGear).FontSize(16).TextColor(muted) })
 				if gear.Clicked() {
@@ -57,8 +59,16 @@ func (a *app) sidebar(c *ui.Context) {
 		ui.Column(c).Height(1).Background(line)
 		recs := a.lib.Snapshot()
 		if len(recs) == 0 {
-			ui.Column(c).Grow(1).Center().Padding(20).Children(func() {
+			ui.Column(c).Grow(1).Center().Padding(20).Gap(12).Children(func() {
 				ui.Text(c, "还没有录音").FontSize(13).TextColor(muted)
+				// An empty library is where an import is most likely to be
+				// what the user wants, and the icon in the header is easy to
+				// miss before there is anything to look at.
+				imp := ui.ButtonBase(c.Key("import-empty")).Padding(8, 14).Radius(8).Center().Background(cardBg2).Border(1, btnStroke)
+				imp.Children(func() { ui.Text(c, "导入音频文件").FontSize(13).TextColor(ink) })
+				if imp.Clicked() {
+					a.importAudio()
+				}
 			})
 			return
 		}

@@ -79,6 +79,12 @@ type app struct {
 	renameRecName string
 	delRecID      string
 
+	// Importing audio files: a chooser or copies are in flight, and what
+	// could not be taken, reported once the batch is done.
+	importing      bool
+	importFailOpen bool
+	importFailMsg  string
+
 	notify func()
 
 	// version is the app's version, shown in the settings dialog. It is
