@@ -25,6 +25,9 @@ var (
 	recRed  = ui.Hex("#ff453a")
 	okGreen = ui.Hex("#30d158")
 	cardBg2 = ui.Hex("#333335")
+	// btnStroke outlines a cardBg2 button, which is too close to its own
+	// fill to read as a button without it.
+	btnStroke = ui.Hex("#ffffff33")
 )
 
 // app is the whole UI: the recording library, the current selection and its
@@ -66,6 +69,15 @@ type app struct {
 	showSettings   bool
 	confirmDel     bool
 	pickingDir     bool // a recordings-directory dialog is open
+
+	// The recording row's context menu: which recording it is renaming or
+	// deleting, and the rename draft. A row can be right-clicked without
+	// being selected, so these name the target rather than reading the
+	// selection.
+	renameRecOpen bool
+	renameRecID   string
+	renameRecName string
+	delRecID      string
 
 	notify func()
 

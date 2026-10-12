@@ -44,17 +44,22 @@ func (a *app) recordControl(c *ui.Context) {
 		})
 	default:
 		canRec := a.chosen() > 0
-		btn := ui.ButtonBase(c.Key("rec")).Padding(12, 16).Radius(10).Center().Background(recRed).Disabled(!canRec)
+		// Idle start button stays a neutral button so it never reads as a
+		// recording in progress; only the dot carries the record red. A
+		// disabled one keeps the dim separator outline, so it does not
+		// invite a click it cannot take.
+		stroke := btnStroke
 		if !canRec {
-			btn.Background(cardBg2)
+			stroke = line
 		}
+		btn := ui.ButtonBase(c.Key("rec")).Padding(12, 16).Radius(10).Center().Background(cardBg2).Border(1, stroke).Disabled(!canRec)
 		btn.Children(func() {
-			fg := ui.Hex("#ffffff")
+			fg, dot := ink, recRed
 			if !canRec {
-				fg = muted
+				fg, dot = muted, muted
 			}
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Center().Children(func() {
-				ui.Column(c).Size(10, 10).Radius(999).Background(fg)
+				ui.Column(c).Size(10, 10).Radius(999).Background(dot)
 				ui.Text(c, "开始录制").FontSize(14).Bold().TextColor(fg)
 			})
 		})

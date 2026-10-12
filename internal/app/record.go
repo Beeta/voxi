@@ -107,9 +107,14 @@ func (a *app) doDelete(rec store.Recording) {
 	mygo.Shell.TrashItem(rec.File)
 	a.lib.Remove(rec.ID)
 	a.mu.Lock()
-	a.selected = ""
-	if recs := a.lib.Snapshot(); len(recs) > 0 {
-		a.selected = recs[0].ID
+	// A row can be deleted from its context menu without being the
+	// selection, so only step the selection forward when the recording
+	// that just went away was the selected one.
+	if a.selected == rec.ID {
+		a.selected = ""
+		if recs := a.lib.Snapshot(); len(recs) > 0 {
+			a.selected = recs[0].ID
+		}
 	}
 	a.mu.Unlock()
 	a.ping()

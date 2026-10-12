@@ -3,6 +3,7 @@ package app
 import (
 	"strings"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/Beeta/voxi/internal/store"
 )
@@ -32,6 +33,11 @@ func (a *app) view(c *ui.Context) {
 	// frame's, which is all a dialog needs and keeps this out of the window
 	// API.
 	a.settingsModal(c, root.Bounds().H)
+	// The row menu's dialogs live at the root, not in the sidebar row: a
+	// right-click can target a row that is scrolled away or rebuilt by the
+	// time the dialog's button is clicked.
+	a.renameRecModal(c)
+	a.deleteConfirm(c)
 }
 
 func (a *app) sidebar(c *ui.Context) {
@@ -122,4 +128,19 @@ func (a *app) fileRow(c *ui.Context, rec store.Recording) {
 	if row.Clicked() {
 		a.selectRec(rec.ID)
 	}
+	// A row's actions live on its context menu rather than in the detail
+	// pane's action bar, which a right-clicked row is not always the one
+	// showing.
+	row.ContextMenu(func(m *ui.Menu) {
+		if m.Item("重命名").Chosen() {
+			a.renameRecOpen, a.renameRecID, a.renameRecName = true, rec.ID, rec.Name
+		}
+		if m.Item("在访达中显示").Chosen() {
+			mygo.Shell.ShowItemInFolder(rec.File)
+		}
+		m.Separator()
+		if m.Item("删除").Chosen() {
+			a.delRecID, a.confirmDel = rec.ID, true
+		}
+	})
 }

@@ -1,7 +1,6 @@
 package app
 
 import (
-	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/Beeta/voxi/internal/store"
 )
@@ -44,7 +43,6 @@ func (a *app) detail(c *ui.Context) {
 				a.scrollPage(c, "tr", func() { a.transcriptView(c, rec) })
 			}
 		})
-		a.actionBar(c, rec)
 	})
 }
 
@@ -60,29 +58,5 @@ func (a *app) titleRow(c *ui.Context, rec store.Recording) {
 	ed := ui.EditableText(c.Key("name-"+rec.ID), &name).FontSize(22).Bold().TextColor(ink)
 	if ed.Changed() {
 		a.lib.Rename(rec.ID, name)
-	}
-}
-
-func (a *app) actionBar(c *ui.Context, rec store.Recording) {
-	ui.Row(c).Padding(16, 32).Gap(10).AlignItems(ui.Center).Children(func() {
-		finder := ui.ButtonBase(c.Key("finder")).Padding(8, 14).Radius(8).Center().Background(cardBg2)
-		finder.Children(func() {
-			ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-				ui.Icon(c, iconFolder).FontSize(13).TextColor(muted)
-				ui.Text(c, "在访达中显示").FontSize(12).TextColor(ink)
-			})
-		})
-		if finder.Clicked() {
-			mygo.Shell.ShowItemInFolder(rec.File)
-		}
-		ui.Spacer(c)
-		del := ui.ButtonBase(c.Key("del")).Padding(8, 14).Radius(8).Center().Background(cardBg2).Border(1, recRed)
-		del.Children(func() { ui.Text(c, "删除").FontSize(12).Bold().TextColor(recRed) })
-		if del.Clicked() {
-			a.confirmDel = true
-		}
-	})
-	if i := ui.AlertDialog(c.Key("delq"), &a.confirmDel, "删除录音", "将把它移到废纸篓。", "删除", "取消"); i == 0 {
-		a.doDelete(rec)
 	}
 }
