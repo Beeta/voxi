@@ -18,17 +18,17 @@ func (a *app) settingsModal(c *ui.Context, windowH float32) {
 	ui.Modal(c.Key("settings"), &a.showSettings, func() {
 		// 616 is the original 560 grown by 10%, matching the window size in
 		// app.go; the scrolling body below shrinks with the window.
-		ui.Column(c).Width(616).Gap(14).Children(func() {
+		ui.Column(c).Width(616).Gap(16).Children(func() {
 			ui.Row(c).AlignItems(ui.Center).Children(func() {
 				ui.Text(c, "设置").FontSize(18).Bold().TextColor(ink).Grow(1)
-				done := ui.ButtonBase(c.Key("set-done")).Padding(6, 14).Radius(8).Center().Background(accent)
+				done := ui.ButtonBase(c.Key("set-done")).Padding(6, 16).Radius(8).Center().Background(accent)
 				done.Children(func() { ui.Text(c, "完成").FontSize(13).Bold().TextColor(onAccent) })
 				if done.Clicked() {
 					a.showSettings = false
 				}
 			})
 			ui.Scroll(c.Key("set-scroll")).MaxHeight(body).Label("设置内容").Children(func() {
-				ui.Column(c).Gap(22).Padding(0, 2).Children(func() {
+				ui.Column(c).Gap(24).Padding(0, 2).Children(func() {
 					a.appearanceSettings(c, s)
 					a.recordSettings(c, s)
 					a.asrSettings(c, s)
@@ -190,7 +190,7 @@ func (a *app) llmSettings(c *ui.Context, s Settings) {
 			a.settings.update(func(st *Settings) { st.LLMModel = v })
 		})
 		ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
-			btn := ui.ButtonBase(c.Key("llm-verify")).Padding(8, 14).Radius(8).Center().Background(cardBg2).Border(1, line).Disabled(verifying)
+			btn := ui.ButtonBase(c.Key("llm-verify")).Padding(8, 16).Radius(8).Center().Background(cardBg2).Border(1, line).Disabled(verifying)
 			btn.Children(func() {
 				if verifying {
 					ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {

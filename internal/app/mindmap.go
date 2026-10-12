@@ -12,7 +12,7 @@ func (a *app) mindmapView(c *ui.Context, rec store.Recording) {
 	busy := a.mindmapping[rec.ID]
 	a.mu.Unlock()
 	hasTranscript := rec.Transcript != nil
-	ui.Column(c).Gap(14).Children(func() {
+	ui.Column(c).Gap(16).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(10).Children(func() {
 			ui.Text(c, "脑图大纲").FontSize(13).Bold().TextColor(muted).Grow(1)
 			if !busy && hasTranscript {
@@ -20,7 +20,7 @@ func (a *app) mindmapView(c *ui.Context, rec store.Recording) {
 				if rec.Mindmap != nil {
 					label = "重新生成"
 				}
-				b := ui.ButtonBase(c.Key("gen-mind")).Padding(8, 14).Radius(8).Center().Background(cardBg2).Border(1, accent)
+				b := ui.ButtonBase(c.Key("gen-mind")).Padding(8, 16).Radius(8).Center().Background(cardBg2).Border(1, accent)
 				b.Children(func() { ui.Text(c, label).FontSize(12).Bold().TextColor(accent) })
 				if b.Clicked() {
 					a.generateMindmap(rec)

@@ -44,7 +44,7 @@ func (a *app) view(c *ui.Context) {
 
 func (a *app) sidebar(c *ui.Context) {
 	ui.Column(c).Width(280).Shrink(0).Background(cardBg).Children(func() {
-		ui.Column(c).Padding(20, 20, 14).Gap(12).Children(func() {
+		ui.Column(c).Padding(20, 20, 16).Gap(12).Children(func() {
 			ui.Row(c).AlignItems(ui.Center).Children(func() {
 				// The app's name, where the list it heads used to be named
 				// after itself: the recordings below are plainly that, and
@@ -71,7 +71,7 @@ func (a *app) sidebar(c *ui.Context) {
 				// An empty library is where an import is most likely to be
 				// what the user wants, and the icon in the header is easy to
 				// miss before there is anything to look at.
-				imp := ui.ButtonBase(c.Key("import-empty")).Padding(8, 14).Radius(8).Center().Border(1, btnStroke)
+				imp := ui.ButtonBase(c.Key("import-empty")).Padding(8, 16).Radius(8).Center().Border(1, btnStroke)
 				imp.Background(controlFill(imp, cardBg2, cardBg3))
 				imp.Children(func() { ui.Text(c, "导入音频文件").FontSize(13).TextColor(ink) })
 				if imp.Clicked() {
@@ -128,7 +128,11 @@ func (a *app) fileRow(c *ui.Context, rec store.Recording) {
 	row := ui.Column(c.Key(rec.ID)).Padding(10, 12).Gap(4).Radius(8).Cursor(ui.CursorPointer)
 	switch {
 	case selected:
-		row.Background(cardBg2).Border(1, accent)
+		// A tinted fill, not the accent border it used to share with every
+		// primary button: a selection is a place, not an action. Hover owns
+		// cardBg2, so the two no longer look alike — the old selected row was
+		// cardBg2 too, told apart only by a thin blue edge.
+		row.Background(selBg)
 	case row.Hovered():
 		row.Background(cardBg2)
 	default:

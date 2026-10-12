@@ -71,7 +71,7 @@ func (a *app) summaryHeader(c *ui.Context, rec store.Recording, busy bool) {
 			label = "重新生成"
 		}
 		off := !hasTranscript
-		b := ui.ButtonBase(c.Key("gen-sum")).Padding(8, 14).Radius(8).Center().Background(accent).Disabled(off)
+		b := ui.ButtonBase(c.Key("gen-sum")).Padding(8, 16).Radius(8).Center().Background(accent).Disabled(off)
 		if off {
 			b.Background(cardBg2)
 		}
@@ -96,7 +96,7 @@ func (a *app) summaryHeader(c *ui.Context, rec store.Recording, busy bool) {
 // generated from (collapsed by default; click the header to edit it).
 func (a *app) summaryPrompt(c *ui.Context, rec store.Recording) {
 	open := a.promptOpen[rec.ID] // zero value = collapsed
-	ui.Column(c).Gap(10).Padding(14).Radius(10).Background(cardBg).Children(func() {
+	ui.Column(c).Gap(10).Padding(16).Radius(10).Background(cardBg).Children(func() {
 		head := ui.Row(c).Gap(8).AlignItems(ui.Center).Cursor(ui.CursorPointer)
 		head.Children(func() {
 			ui.Text(c, triangle(open)).FontSize(12).TextColor(muted).Width(14)

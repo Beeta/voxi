@@ -14,7 +14,7 @@ func (a *app) renameRecModal(c *ui.Context) {
 		return
 	}
 	ui.Modal(c.Key("rec-rename"), &a.renameRecOpen, func() {
-		ui.Column(c).Width(360).Gap(14).Children(func() {
+		ui.Column(c).Width(360).Gap(16).Children(func() {
 			ui.Text(c, "重命名录音").FontSize(16).Bold().TextColor(ink)
 			name := a.renameRecName
 			ti := ui.TextInput(c.Key("rec-name"), &name).FontSize(14).TextColor(ink)
@@ -24,12 +24,12 @@ func (a *app) renameRecModal(c *ui.Context) {
 			}
 			ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
 				ui.Spacer(c)
-				cancel := ui.ButtonBase(c.Key("rec-rename-cancel")).Padding(8, 14).Radius(8).Center().Background(cardBg2).Border(1, line)
+				cancel := ui.ButtonBase(c.Key("rec-rename-cancel")).Padding(8, 16).Radius(8).Center().Background(cardBg2).Border(1, line)
 				cancel.Children(func() { ui.Text(c, "取消").FontSize(13).TextColor(ink) })
 				if cancel.Clicked() {
 					a.renameRecOpen = false
 				}
-				save := ui.ButtonBase(c.Key("rec-rename-save")).Padding(8, 14).Radius(8).Center().Background(accent)
+				save := ui.ButtonBase(c.Key("rec-rename-save")).Padding(8, 16).Radius(8).Center().Background(accent)
 				save.Children(func() { ui.Text(c, "保存").FontSize(13).Bold().TextColor(onAccent) })
 				if save.Clicked() || ti.Submitted() {
 					a.applyRecRename()

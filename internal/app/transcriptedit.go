@@ -10,7 +10,7 @@ import (
 // auto-saves. The segment being edited is tracked by a.editSeg. tint is the
 // fill this speaker's chip is drawn in.
 func (a *app) segmentRow(c *ui.Context, rec store.Recording, i int, seg store.Segment, active bool, tint ui.Color) {
-	row := ui.Row(c.Key(i)).Padding(8, 10).Gap(12).Radius(6).AlignItems(ui.Start)
+	row := ui.Row(c.Key(i)).Padding(8, 10).Gap(12).Radius(8).AlignItems(ui.Start)
 	switch {
 	case active:
 		row.Background(cardBg2)
@@ -46,7 +46,7 @@ func (a *app) segmentRow(c *ui.Context, rec store.Recording, i int, seg store.Se
 			if ta.Changed() {
 				a.lib.SetSegmentText(rec.ID, i, txt)
 			}
-			done := ui.ButtonBase(c.Key("done")).Padding(4, 10).Radius(6).Center().Background(cardBg2)
+			done := ui.ButtonBase(c.Key("done")).Padding(4, 10).Radius(8).Center().Background(cardBg2)
 			done.Children(func() { ui.Text(c, "完成").FontSize(12).Bold().TextColor(accent) })
 			if done.Clicked() {
 				a.editSeg = -1
@@ -68,7 +68,7 @@ func (a *app) speakerRenameModal(c *ui.Context, rec store.Recording) {
 		return
 	}
 	ui.Modal(c.Key("spk-rename"), &a.renaming, func() {
-		ui.Column(c).Width(360).Gap(14).Children(func() {
+		ui.Column(c).Width(360).Gap(16).Children(func() {
 			ui.Text(c, "重命名说话人").FontSize(16).Bold().TextColor(ink)
 			name := a.renameDraft
 			ti := ui.TextInput(c.Key("spk-name"), &name).FontSize(14).TextColor(ink)
@@ -78,12 +78,12 @@ func (a *app) speakerRenameModal(c *ui.Context, rec store.Recording) {
 			}
 			ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
 				ui.Spacer(c)
-				one := ui.ButtonBase(c.Key("one")).Padding(8, 14).Radius(8).Center().Background(cardBg2).Border(1, line)
+				one := ui.ButtonBase(c.Key("one")).Padding(8, 16).Radius(8).Center().Background(cardBg2).Border(1, line)
 				one.Children(func() { ui.Text(c, "仅此条").FontSize(13).TextColor(ink) })
 				if one.Clicked() {
 					a.applyRename(rec, false)
 				}
-				all := ui.ButtonBase(c.Key("all")).Padding(8, 14).Radius(8).Center().Background(accent)
+				all := ui.ButtonBase(c.Key("all")).Padding(8, 16).Radius(8).Center().Background(accent)
 				all.Children(func() { ui.Text(c, "全部相同").FontSize(13).Bold().TextColor(onAccent) })
 				if all.Clicked() {
 					a.applyRename(rec, true)

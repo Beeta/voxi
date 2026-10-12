@@ -4,7 +4,7 @@ import "github.com/egoist/mygo/ui"
 
 // loadingRow is a spinner with a label, shown while an AI task runs.
 func loadingRow(c *ui.Context, label string) {
-	ui.Row(c).Gap(10).AlignItems(ui.Center).Padding(14).Children(func() {
+	ui.Row(c).Gap(10).AlignItems(ui.Center).Padding(16).Children(func() {
 		ui.Spinner(c)
 		ui.Text(c, label).FontSize(13).TextColor(muted)
 	})

@@ -15,8 +15,9 @@ const speakerTintCount = 6
 type palette struct {
 	pageBg   ui.Color // the window behind everything
 	cardBg   ui.Color // panels: the sidebar, cards, bubbles
-	cardBg2  ui.Color // controls on a panel, and the selected row
+	cardBg2  ui.Color // controls on a panel, and a row under the pointer
 	cardBg3  ui.Color // a control on a panel under the pointer
+	selBg    ui.Color // the selected recording's row, a tint of accent
 	line     ui.Color // separators and outlines
 	ink      ui.Color // primary text
 	muted    ui.Color // secondary text, and what is disabled
@@ -38,13 +39,16 @@ type palette struct {
 // darkPalette is macOS's dark system colors, which the app has drawn with
 // since it had only one appearance.
 var darkPalette = palette{
-	pageBg:    ui.Hex("#1c1c1e"),
-	cardBg:    ui.Hex("#2c2c2e"),
-	cardBg2:   ui.Hex("#333335"),
-	cardBg3:   ui.Hex("#3f3f43"),
-	line:      ui.Hex("#3a3a3c"),
-	ink:       ui.Hex("#f5f5f7"),
-	muted:     ui.Hex("#9a9a9e"),
+	pageBg:  ui.Hex("#1c1c1e"),
+	cardBg:  ui.Hex("#2c2c2e"),
+	cardBg2: ui.Hex("#333335"),
+	cardBg3: ui.Hex("#3f3f43"),
+	selBg:   ui.Hex("#163051"),
+	line:    ui.Hex("#3a3a3c"),
+	ink:     ui.Hex("#f5f5f7"),
+	// A hair brighter than iOS's secondaryLabel (#9a9a9e) so it clears AA on a
+	// hovered row's cardBg2 too, not only on the page.
+	muted:     ui.Hex("#9d9da1"),
 	accent:    ui.Hex("#0a84ff"),
 	onAccent:  ui.Hex("#ffffff"),
 	recRed:    ui.Hex("#ff453a"),
@@ -67,13 +71,16 @@ var darkPalette = palette{
 // from the page and cardBg2 still the thing that recedes into it — the
 // direction of each step reverses with the background.
 var lightPalette = palette{
-	pageBg:    ui.Hex("#f2f2f7"),
-	cardBg:    ui.Hex("#ffffff"),
-	cardBg2:   ui.Hex("#e5e5ea"),
-	cardBg3:   ui.Hex("#d6d6dc"),
-	line:      ui.Hex("#d1d1d6"),
-	ink:       ui.Hex("#1c1c1e"),
-	muted:     ui.Hex("#8e8e93"),
+	pageBg:  ui.Hex("#f2f2f7"),
+	cardBg:  ui.Hex("#ffffff"),
+	cardBg2: ui.Hex("#e5e5ea"),
+	cardBg3: ui.Hex("#d6d6dc"),
+	selBg:   ui.Hex("#e8f0fe"),
+	line:    ui.Hex("#d1d1d6"),
+	ink:     ui.Hex("#1c1c1e"),
+	// Deeper than the system's own secondary label (#8e8e93, ~3.3:1 on white)
+	// so it clears WCAG AA 4.5:1 — on white, and on selBg under the selection.
+	muted:     ui.Hex("#636366"),
 	accent:    ui.Hex("#007aff"),
 	onAccent:  ui.Hex("#ffffff"),
 	recRed:    ui.Hex("#ff3b30"),
@@ -103,6 +110,7 @@ var (
 	cardBg    = darkPalette.cardBg
 	cardBg2   = darkPalette.cardBg2
 	cardBg3   = darkPalette.cardBg3
+	selBg     = darkPalette.selBg
 	line      = darkPalette.line
 	ink       = darkPalette.ink
 	muted     = darkPalette.muted
@@ -128,6 +136,7 @@ func useAppearance(t *ui.Theme) {
 		p = darkPalette
 	}
 	pageBg, cardBg, cardBg2, cardBg3, line = p.pageBg, p.cardBg, p.cardBg2, p.cardBg3, p.line
+	selBg = p.selBg
 	ink, muted, accent, onAccent = p.ink, p.muted, p.accent, p.onAccent
 	recRed, okGreen, btnStroke = p.recRed, p.okGreen, p.btnStroke
 	speakers = p.speakers

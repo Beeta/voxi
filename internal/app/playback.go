@@ -62,7 +62,7 @@ func (a *app) transcriptView(c *ui.Context, rec store.Recording) {
 				if rec.Transcript != nil {
 					label = "重新识别"
 				}
-				b := ui.ButtonBase(c.Key("asr")).Padding(8, 14).Radius(8).Center().Background(cardBg2).Border(1, accent)
+				b := ui.ButtonBase(c.Key("asr")).Padding(8, 16).Radius(8).Center().Background(cardBg2).Border(1, accent)
 				b.Children(func() { ui.Text(c, label).FontSize(12).Bold().TextColor(accent) })
 				if b.Clicked() {
 					if rec.Transcript != nil {
@@ -75,12 +75,12 @@ func (a *app) transcriptView(c *ui.Context, rec store.Recording) {
 		})
 		switch {
 		case transcribing:
-			ui.Row(c).Gap(10).AlignItems(ui.Center).Padding(14).Children(func() {
+			ui.Row(c).Gap(10).AlignItems(ui.Center).Padding(16).Children(func() {
 				ui.Spinner(c)
 				ui.Text(c, "识别中…（正在上传音频并等待火山识别，可能需要数十秒）").FontSize(13).TextColor(muted)
 			})
 		case rec.Transcript == nil:
-			ui.Column(c).Padding(14).Radius(10).Background(cardBg).Gap(8).Children(func() {
+			ui.Column(c).Padding(16).Radius(10).Background(cardBg).Gap(8).Children(func() {
 				ui.Text(c, "尚未识别。点击“开始识别”生成带时间线的文字。").FontSize(13).TextColor(muted)
 				if errMsg != "" {
 					ui.Text(c, "⚠ "+errMsg).FontSize(12).TextColor(recRed).Selectable()

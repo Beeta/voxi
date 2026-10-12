@@ -18,7 +18,7 @@ func (a *app) detail(c *ui.Context) {
 		return
 	}
 	col.Children(func() {
-		ui.Column(c).Padding(28, 32, 14).Gap(6).Children(func() {
+		ui.Column(c).Padding(28, 32, 16).Gap(6).Children(func() {
 			a.titleRow(c, rec)
 			ui.Text(c, recMeta(rec)).FontSize(12).TextColor(muted)
 		})

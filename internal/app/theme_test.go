@@ -1,6 +1,7 @@
 package app
 
 import (
+	"math"
 	"reflect"
 	"testing"
 
@@ -16,6 +17,7 @@ func currentPalette() palette {
 		cardBg:    cardBg,
 		cardBg2:   cardBg2,
 		cardBg3:   cardBg3,
+		selBg:     selBg,
 		line:      line,
 		ink:       ink,
 		muted:     muted,
@@ -139,6 +141,49 @@ func abs(n int) int {
 		return -n
 	}
 	return n
+}
+
+// relLum is a color's WCAG relative luminance.
+func relLum(c ui.Color) float64 {
+	ch := func(v uint8) float64 {
+		s := float64(v) / 255
+		if s <= 0.03928 {
+			return s / 12.92
+		}
+		return math.Pow((s+0.055)/1.055, 2.4)
+	}
+	return 0.2126*ch(c.R) + 0.7152*ch(c.G) + 0.0722*ch(c.B)
+}
+
+// contrastRatio is the WCAG contrast between two colors.
+func contrastRatio(a, b ui.Color) float64 {
+	la, lb := relLum(a)+0.05, relLum(b)+0.05
+	if la < lb {
+		la, lb = lb, la
+	}
+	return la / lb
+}
+
+// TestTextContrastMeetsAA pins secondary text (muted) at WCAG AA 4.5:1 over
+// every surface it lands on, in both appearances. The light muted used to be
+// the system's own ~3.3:1 secondary label; this keeps it from drifting back.
+func TestTextContrastMeetsAA(t *testing.T) {
+	for _, ap := range []struct {
+		name string
+		pal  palette
+	}{{"dark", darkPalette}, {"light", lightPalette}} {
+		for _, s := range []struct {
+			where string
+			bg    ui.Color
+		}{
+			{"page", ap.pal.pageBg}, {"card", ap.pal.cardBg},
+			{"hovered row", ap.pal.cardBg2}, {"selected row", ap.pal.selBg},
+		} {
+			if got := contrastRatio(ap.pal.muted, s.bg); got < 4.5 {
+				t.Errorf("%s: muted on %s is %.2f:1, below AA 4.5", ap.name, s.where, got)
+			}
+		}
+	}
 }
 
 // TestAppearanceNamesRoundTrip pins the mapping the settings dialog leans

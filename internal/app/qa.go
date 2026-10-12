@@ -42,7 +42,7 @@ func (a *app) chatBubble(c *ui.Context, i int, m store.ChatMessage) {
 		if user {
 			bg, fg = accent, onAccent
 		}
-		ui.Column(c).Padding(10, 14).Radius(12).Background(bg).MaxWidth(460).Children(func() {
+		ui.Column(c).Padding(10, 16).Radius(10).Background(bg).MaxWidth(460).Children(func() {
 			ui.Text(c, text).FontSize(14).TextColor(fg).Selectable()
 		})
 		if !user {
