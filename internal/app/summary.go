@@ -50,6 +50,8 @@ func (a *app) summaryPrompt(c *ui.Context, rec store.Recording, busy bool) {
 			if ta.Changed() {
 				a.draftPrompt[rec.ID] = cur
 			}
+			ui.Text(c, "指令决定内容怎么组织。输出结构固定为「概览 / 关键要点 / 待办事项」三段，好让下面分块显示。").
+				FontSize(11).TextColor(muted)
 		}
 		ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
 			if !hasTranscript {

@@ -25,16 +25,13 @@ func New(baseURL, apiKey, model string) Client {
 
 // Summarize condenses the transcript into overview/highlights/actions. It asks
 // the model for JSON and parses it, falling back to the raw reply as overview.
+//
+// The instruction goes in the system message rather than in front of the user
+// turn: the transcript behind it can run to tens of thousands of words, and an
+// instruction buried ahead of that reads as context, not as the instruction it
+// was meant to replace.
 func (c Client) Summarize(transcript, prompt string) (*store.Summary, error) {
-	if prompt == "" {
-		prompt = DefaultSummaryPrompt
-	}
-	sys := "你是会议记录助手。只输出 JSON，不要解释、不要代码块标记，模式为：" +
-		`{"overview": "一句话概览", "highlights": ["关键要点"], "actions": ["待办事项"]}`
-	out, err := c.complete([]chatMessage{
-		{Role: "system", Content: sys},
-		{Role: "user", Content: prompt + "\n\n转写内容：\n" + transcript},
-	})
+	out, err := c.complete(summarizeMessages(transcript, prompt))
 	if err != nil {
 		return nil, err
 	}
@@ -43,6 +40,21 @@ func (c Client) Summarize(transcript, prompt string) (*store.Summary, error) {
 		return &store.Summary{Overview: strings.TrimSpace(out)}, nil
 	}
 	return &sm, nil
+}
+
+// summarizeMessages builds the chat messages for Summarize. The user's
+// instruction leads the system message; the JSON schema follows it, since the
+// summary tab renders those three fields and cannot show an arbitrary shape.
+func summarizeMessages(transcript, prompt string) []chatMessage {
+	if prompt == "" {
+		prompt = DefaultSummaryPrompt
+	}
+	sys := prompt + "\n\n只输出 JSON，不要解释、不要代码块标记，模式为：" +
+		`{"overview": "一句话概览", "highlights": ["关键要点"], "actions": ["待办事项"]}`
+	return []chatMessage{
+		{Role: "system", Content: sys},
+		{Role: "user", Content: "转写内容：\n" + transcript},
+	}
 }
 
 // Mindmap turns the transcript into an outline tree via a JSON reply.
