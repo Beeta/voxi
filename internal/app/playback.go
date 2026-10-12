@@ -5,6 +5,9 @@ import (
 	"github.com/Beeta/voxi/internal/store"
 )
 
+// playerBar is the pane's bottom row: the play button, the elapsed and
+// total time, and the seek bar between them. It is deliberately short — it
+// is a bar under the content, not a panel of its own.
 func (a *app) playerBar(c *ui.Context, rec store.Recording) {
 	a.ensurePlayer(rec)
 	a.mu.Lock()
@@ -26,15 +29,15 @@ func (a *app) playerBar(c *ui.Context, rec store.Recording) {
 	a.mu.Lock()
 	pos := a.playPos
 	a.mu.Unlock()
-	ui.Row(c).Gap(14).AlignItems(ui.Center).Children(func() {
-		btn := ui.ButtonBase(c.Key("play")).Size(46, 46).Radius(999).Center().Background(accent)
+	ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
+		btn := ui.ButtonBase(c.Key("play")).Size(32, 32).Radius(999).Center().Background(accent)
 		btn.Children(func() {
-			ui.Icon(c, playIcon(playing)).FontSize(18).TextColor(onAccent)
+			ui.Icon(c, playIcon(playing)).FontSize(14).TextColor(onAccent)
 		})
 		if btn.Clicked() {
 			a.togglePlay()
 		}
-		ui.Text(c, formatSecs(pos)).FontSize(12).TextColor(muted).Width(46)
+		ui.Text(c, formatSecs(pos)).FontSize(11).TextColor(muted).Width(46)
 		sl := ui.Slider(c.Key("seek"), &a.playPos, 0, maxf(dur, 0.001)).Grow(1)
 		if sl.Changed() && p != nil {
 			a.mu.Lock()
@@ -42,7 +45,7 @@ func (a *app) playerBar(c *ui.Context, rec store.Recording) {
 			a.mu.Unlock()
 			p.Seek(np)
 		}
-		ui.Text(c, formatSecs(dur)).FontSize(12).TextColor(muted).Width(46)
+		ui.Text(c, formatSecs(dur)).FontSize(11).TextColor(muted).Width(46)
 	})
 }
 

@@ -22,9 +22,6 @@ func (a *app) detail(c *ui.Context) {
 			a.titleRow(c, rec)
 			ui.Text(c, recMeta(rec)).FontSize(12).TextColor(muted)
 		})
-		ui.Column(c).Padding(0, 32, 16).Children(func() {
-			a.playerBar(c, rec)
-		})
 		ui.Column(c).Padding(0, 32).Children(func() {
 			ui.Tabs(c.Key("tab"), &a.tab, "转写", "摘要", "脑图", "问答", "笔记")
 		})
@@ -42,6 +39,13 @@ func (a *app) detail(c *ui.Context) {
 			default:
 				a.scrollPage(c, "tr", func() { a.transcriptView(c, rec) })
 			}
+		})
+		// The player is the pane's last row, under the tab body rather than
+		// over it: the transcript or summary gets the height instead, and
+		// the controls stay put while it scrolls.
+		ui.Column(c).Height(1).Background(line)
+		ui.Column(c).Padding(8, 32).Children(func() {
+			a.playerBar(c, rec)
 		})
 	})
 }

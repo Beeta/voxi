@@ -46,7 +46,10 @@ func (a *app) sidebar(c *ui.Context) {
 	ui.Column(c).Width(280).Shrink(0).Background(cardBg).Children(func() {
 		ui.Column(c).Padding(20, 20, 14).Gap(12).Children(func() {
 			ui.Row(c).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, "录音").FontSize(20).Bold().TextColor(ink).Grow(1)
+				// The app's name, where the list it heads used to be named
+				// after itself: the recordings below are plainly that, and
+				// the window's own title is only "Voxi".
+				ui.Text(c, "有听有记 Voxi").FontSize(20).Bold().TextColor(ink).Grow(1).SingleLine()
 				a.importButton(c)
 				gear := ui.ButtonBase(c.Key("open-settings")).Padding(6).Radius(8).Center().Background(cardBg2)
 				gear.Children(func() { ui.Icon(c, iconGear).FontSize(16).TextColor(muted) })
