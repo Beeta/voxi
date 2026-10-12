@@ -101,11 +101,33 @@ func (a *app) segments(c *ui.Context, rec store.Recording) {
 	a.mu.Lock()
 	cur := a.playPos
 	a.mu.Unlock()
+	tints := speakerTintIndexes(rec)
 	ui.Column(c).Gap(2).Children(func() {
 		for i := range rec.Transcript.Segments {
 			seg := rec.Transcript.Segments[i]
 			active := cur >= seg.Start && cur < seg.End
-			a.segmentRow(c, rec, i, seg, active)
+			a.segmentRow(c, rec, i, seg, active, speakers[tints[seg.Speaker]%speakerTintCount])
 		}
 	})
+}
+
+// speakerTintIndexes numbers a transcript's speakers in the order they first
+// speak, so the chips of one recording come out in different colors: the
+// first speaker takes the first tint, the next a different one. Order of
+// appearance rather than a hash of the name, which would let two speakers in
+// one meeting land on the same color.
+func speakerTintIndexes(rec store.Recording) map[string]int {
+	idx := map[string]int{}
+	if rec.Transcript == nil {
+		return idx
+	}
+	for _, seg := range rec.Transcript.Segments {
+		if seg.Speaker == "" {
+			continue
+		}
+		if _, seen := idx[seg.Speaker]; !seen {
+			idx[seg.Speaker] = len(idx)
+		}
+	}
+	return idx
 }

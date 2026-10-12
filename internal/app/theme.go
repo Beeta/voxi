@@ -5,6 +5,10 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
+// speakerTintCount is how many speakers get a color of their own before the
+// transcript starts reusing them.
+const speakerTintCount = 6
+
 // palette is one appearance's colors. The app draws with its own values
 // rather than the framework theme's, which is what makes a light appearance
 // a second palette and nothing else.
@@ -22,6 +26,12 @@ type palette struct {
 	// btnStroke outlines a cardBg2 button, which is too close to its own
 	// fill to read as a button without it.
 	btnStroke ui.Color
+	// speakers are the fills of the transcript's speaker chips: the first
+	// speaker of a recording takes the first, the next a different one, so
+	// who said what is readable at a glance. They are tints rather than
+	// saturated colors — a transcript is mostly text, and the chips should
+	// sort it, not shout over it. ink sits on all of them.
+	speakers [speakerTintCount]ui.Color
 }
 
 // darkPalette is macOS's dark system colors, which the app has drawn with
@@ -38,6 +48,16 @@ var darkPalette = palette{
 	recRed:    ui.Hex("#ff453a"),
 	okGreen:   ui.Hex("#30d158"),
 	btnStroke: ui.Hex("#ffffff33"),
+	// Deep tints of the same hues, dark enough for near-white ink to sit on
+	// and still read as different colors from one another.
+	speakers: [speakerTintCount]ui.Color{
+		ui.Hex("#1f3a5c"), // blue
+		ui.Hex("#362a55"), // purple
+		ui.Hex("#4d2740"), // pink
+		ui.Hex("#4a3520"), // orange
+		ui.Hex("#1b3f3d"), // teal
+		ui.Hex("#24402c"), // green
+	},
 }
 
 // lightPalette is the same palette turned over: the same macOS colors in
@@ -56,6 +76,16 @@ var lightPalette = palette{
 	recRed:    ui.Hex("#ff3b30"),
 	okGreen:   ui.Hex("#34c759"),
 	btnStroke: ui.Hex("#0000001a"),
+	// Pale tints of the same hues, dark enough under the light appearance's
+	// near-black ink and light enough to stand off a white panel.
+	speakers: [speakerTintCount]ui.Color{
+		ui.Hex("#d7e6fb"), // blue
+		ui.Hex("#e4dcf8"), // purple
+		ui.Hex("#fbdee9"), // pink
+		ui.Hex("#fbe6d0"), // orange
+		ui.Hex("#d3efeb"), // teal
+		ui.Hex("#dcefdb"), // green
+	},
 }
 
 // The colors the views draw with, by name. view() refills them from the
@@ -77,6 +107,7 @@ var (
 	recRed    = darkPalette.recRed
 	okGreen   = darkPalette.okGreen
 	btnStroke = darkPalette.btnStroke
+	speakers  = darkPalette.speakers
 )
 
 // useAppearance takes t's appearance as the one to draw with: it refills
@@ -95,6 +126,7 @@ func useAppearance(t *ui.Theme) {
 	pageBg, cardBg, cardBg2, line = p.pageBg, p.cardBg, p.cardBg2, p.line
 	ink, muted, accent, onAccent = p.ink, p.muted, p.accent, p.onAccent
 	recRed, okGreen, btnStroke = p.recRed, p.okGreen, p.btnStroke
+	speakers = p.speakers
 
 	t.Background = p.pageBg
 	t.Surface = p.cardBg

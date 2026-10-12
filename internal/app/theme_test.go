@@ -23,6 +23,7 @@ func currentPalette() palette {
 		recRed:    recRed,
 		okGreen:   okGreen,
 		btnStroke: btnStroke,
+		speakers:  speakers,
 	}
 }
 
@@ -81,7 +82,9 @@ func TestUseAppearanceColorsTheFrameworkTheme(t *testing.T) {
 }
 
 // TestPalettesCarryEveryColor catches a color added to palette and filled in
-// for one appearance only: the other would draw it as nothing.
+// for one appearance only: the other would draw it as nothing. The speaker
+// tints are a whole array per appearance, which IsZero only reports as unset
+// when none of them is filled in, so they are checked one by one.
 func TestPalettesCarryEveryColor(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -89,11 +92,52 @@ func TestPalettesCarryEveryColor(t *testing.T) {
 	}{{"darkPalette", darkPalette}, {"lightPalette", lightPalette}} {
 		v := reflect.ValueOf(tc.pal)
 		for i := range v.NumField() {
-			if v.Field(i).IsZero() {
+			f := v.Field(i)
+			if f.Kind() == reflect.Array {
+				for j := range f.Len() {
+					if f.Index(j).IsZero() {
+						t.Errorf("%s.%s[%d] is unset", tc.name, v.Type().Field(i).Name, j)
+					}
+				}
+				continue
+			}
+			if f.IsZero() {
 				t.Errorf("%s.%s is unset", tc.name, v.Type().Field(i).Name)
 			}
 		}
 	}
+}
+
+// TestSpeakerTintsDiffer keeps the tints telling speakers apart, which is the
+// whole point of them: a repeated color, or two too close to tell apart,
+// would make the transcript harder to read than one plain color.
+func TestSpeakerTintsDiffer(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		pal  palette
+	}{{"darkPalette", darkPalette}, {"lightPalette", lightPalette}} {
+		for i := range speakerTintCount {
+			for j := i + 1; j < speakerTintCount; j++ {
+				a, b := tc.pal.speakers[i], tc.pal.speakers[j]
+				if a == b {
+					t.Errorf("%s: speaker tints %d and %d are the same color", tc.name, i, j)
+					continue
+				}
+				d := abs(int(a.R)-int(b.R)) + abs(int(a.G)-int(b.G)) + abs(int(a.B)-int(b.B))
+				if d < 24 {
+					t.Errorf("%s: speaker tints %d and %d differ by %d, too little to tell apart",
+						tc.name, i, j, d)
+				}
+			}
+		}
+	}
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
 }
 
 // TestAppearanceNamesRoundTrip pins the mapping the settings dialog leans

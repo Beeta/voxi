@@ -7,8 +7,9 @@ import (
 
 // segmentRow renders one transcript segment: a clickable speaker chip, a
 // clickable timestamp (seeks), and the text — click it to edit inline, which
-// auto-saves. The segment being edited is tracked by a.editSeg.
-func (a *app) segmentRow(c *ui.Context, rec store.Recording, i int, seg store.Segment, active bool) {
+// auto-saves. The segment being edited is tracked by a.editSeg. tint is the
+// fill this speaker's chip is drawn in.
+func (a *app) segmentRow(c *ui.Context, rec store.Recording, i int, seg store.Segment, active bool, tint ui.Color) {
 	row := ui.Row(c.Key(i)).Padding(8, 10).Gap(12).Radius(6).AlignItems(ui.Start)
 	switch {
 	case active:
@@ -18,8 +19,14 @@ func (a *app) segmentRow(c *ui.Context, rec store.Recording, i int, seg store.Se
 	}
 	row.Children(func() {
 		if seg.Speaker != "" {
-			sp := ui.Column(c.Key("spk")).Padding(2, 6).Radius(6).Background(cardBg2).Border(1, line).Cursor(ui.CursorPointer)
-			sp.Children(func() { ui.Text(c, seg.Speaker).FontSize(12).Bold().TextColor(muted) })
+			// Shrink(0) keeps the chip its own width in a row this crowded,
+			// and NoWrap keeps the name one piece. SingleLine would do the
+			// second half too, but by cutting the name short with an
+			// ellipsis: a chip measures a hair narrower than the text it
+			// holds lays out, and "说话人1" is exactly at that boundary, so
+			// it came out "说话…".
+			sp := ui.Column(c.Key("spk")).Shrink(0).Padding(2, 7).Radius(6).Background(tint).Cursor(ui.CursorPointer)
+			sp.Children(func() { ui.Text(c, seg.Speaker).FontSize(11).Bold().TextColor(ink).NoWrap() })
 			if sp.Clicked() {
 				a.renaming, a.renameIdx, a.renameDraft = true, i, seg.Speaker
 			}
