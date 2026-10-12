@@ -16,6 +16,7 @@ type palette struct {
 	pageBg   ui.Color // the window behind everything
 	cardBg   ui.Color // panels: the sidebar, cards, bubbles
 	cardBg2  ui.Color // controls on a panel, and the selected row
+	cardBg3  ui.Color // a control on a panel under the pointer
 	line     ui.Color // separators and outlines
 	ink      ui.Color // primary text
 	muted    ui.Color // secondary text, and what is disabled
@@ -40,6 +41,7 @@ var darkPalette = palette{
 	pageBg:    ui.Hex("#1c1c1e"),
 	cardBg:    ui.Hex("#2c2c2e"),
 	cardBg2:   ui.Hex("#333335"),
+	cardBg3:   ui.Hex("#3f3f43"),
 	line:      ui.Hex("#3a3a3c"),
 	ink:       ui.Hex("#f5f5f7"),
 	muted:     ui.Hex("#9a9a9e"),
@@ -68,6 +70,7 @@ var lightPalette = palette{
 	pageBg:    ui.Hex("#f2f2f7"),
 	cardBg:    ui.Hex("#ffffff"),
 	cardBg2:   ui.Hex("#e5e5ea"),
+	cardBg3:   ui.Hex("#d6d6dc"),
 	line:      ui.Hex("#d1d1d6"),
 	ink:       ui.Hex("#1c1c1e"),
 	muted:     ui.Hex("#8e8e93"),
@@ -99,6 +102,7 @@ var (
 	pageBg    = darkPalette.pageBg
 	cardBg    = darkPalette.cardBg
 	cardBg2   = darkPalette.cardBg2
+	cardBg3   = darkPalette.cardBg3
 	line      = darkPalette.line
 	ink       = darkPalette.ink
 	muted     = darkPalette.muted
@@ -123,7 +127,7 @@ func useAppearance(t *ui.Theme) {
 	if t.Dark {
 		p = darkPalette
 	}
-	pageBg, cardBg, cardBg2, line = p.pageBg, p.cardBg, p.cardBg2, p.line
+	pageBg, cardBg, cardBg2, cardBg3, line = p.pageBg, p.cardBg, p.cardBg2, p.cardBg3, p.line
 	ink, muted, accent, onAccent = p.ink, p.muted, p.accent, p.onAccent
 	recRed, okGreen, btnStroke = p.recRed, p.okGreen, p.btnStroke
 	speakers = p.speakers

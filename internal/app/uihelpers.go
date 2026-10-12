@@ -15,6 +15,19 @@ const (
 	labelSystem = "系统输出"
 )
 
+// controlFill is what a button fills with: rest while the pointer is away,
+// hover while it is on, so a button answers before it is clicked.
+//
+// The framework does this itself through the theme, but only for a button
+// whose fill it also set — it steps aside as soon as a view paints its own
+// background, which every button here does.
+func controlFill(e ui.Element, rest, hover ui.Color) ui.Color {
+	if e.Hovered() {
+		return hover
+	}
+	return rest
+}
+
 func formatClock(d time.Duration) string {
 	s := int(d.Seconds())
 	return fmt.Sprintf("%02d:%02d", s/60, s%60)

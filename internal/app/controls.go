@@ -52,7 +52,10 @@ func (a *app) recordControl(c *ui.Context) {
 		if !canRec {
 			stroke = line
 		}
-		btn := ui.ButtonBase(c.Key("rec")).Padding(12, 16).Radius(10).Center().Background(cardBg2).Border(1, stroke).Disabled(!canRec)
+		btn := ui.ButtonBase(c.Key("rec")).Padding(12, 16).Radius(10).Center().Border(1, stroke).Disabled(!canRec)
+		// Hovered is false while the button is disabled, so the fill only
+		// steps up when the click would do something.
+		btn.Background(controlFill(btn, cardBg2, cardBg3))
 		btn.Children(func() {
 			fg, dot := ink, recRed
 			if !canRec {

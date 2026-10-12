@@ -51,7 +51,10 @@ func (a *app) sidebar(c *ui.Context) {
 				// the window's own title is only "Voxi".
 				ui.Text(c, "有听有记 Voxi").FontSize(20).Bold().TextColor(ink).Grow(1).SingleLine()
 				a.importButton(c)
-				gear := ui.ButtonBase(c.Key("open-settings")).Padding(6).Radius(8).Center().Background(cardBg2)
+				// Both are icon-only, so the tip is the only thing that says
+				// what they do; it arrives once the pointer rests on them.
+				gear := ui.ButtonBase(c.Key("open-settings")).Padding(6).Radius(8).Center().Tooltip("设置")
+				gear.Background(controlFill(gear, cardBg2, cardBg3))
 				gear.Children(func() { ui.Icon(c, iconGear).FontSize(16).TextColor(muted) })
 				if gear.Clicked() {
 					a.showSettings = true
@@ -68,7 +71,8 @@ func (a *app) sidebar(c *ui.Context) {
 				// An empty library is where an import is most likely to be
 				// what the user wants, and the icon in the header is easy to
 				// miss before there is anything to look at.
-				imp := ui.ButtonBase(c.Key("import-empty")).Padding(8, 14).Radius(8).Center().Background(cardBg2).Border(1, btnStroke)
+				imp := ui.ButtonBase(c.Key("import-empty")).Padding(8, 14).Radius(8).Center().Border(1, btnStroke)
+				imp.Background(controlFill(imp, cardBg2, cardBg3))
 				imp.Children(func() { ui.Text(c, "导入音频文件").FontSize(13).TextColor(ink) })
 				if imp.Clicked() {
 					a.importAudio()

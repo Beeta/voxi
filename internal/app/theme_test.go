@@ -15,6 +15,7 @@ func currentPalette() palette {
 		pageBg:    pageBg,
 		cardBg:    cardBg,
 		cardBg2:   cardBg2,
+		cardBg3:   cardBg3,
 		line:      line,
 		ink:       ink,
 		muted:     muted,
@@ -177,6 +178,10 @@ func TestAppearanceNamesRoundTrip(t *testing.T) {
 // it recedes into the panel, whichever way round the background is. Read as
 // luminance, the dark appearance climbs page → card → card2 and the light
 // one climbs page → card and falls again to card2.
+//
+// cardBg3 is the same step again, the one a control takes under the pointer,
+// so it has to continue in the direction cardBg2 was going — a hover that
+// landed back on the resting color would answer nothing.
 func TestLightPaletteReversesTheSteps(t *testing.T) {
 	lum := func(c ui.Color) int { return int(c.R) + int(c.G) + int(c.B) }
 	if lum(darkPalette.cardBg) <= lum(darkPalette.pageBg) {
@@ -185,10 +190,16 @@ func TestLightPaletteReversesTheSteps(t *testing.T) {
 	if lum(darkPalette.cardBg2) <= lum(darkPalette.cardBg) {
 		t.Error("in the dark appearance a control is not lighter than its panel")
 	}
+	if lum(darkPalette.cardBg3) <= lum(darkPalette.cardBg2) {
+		t.Error("in the dark appearance a hovered control is not lighter than a resting one")
+	}
 	if lum(lightPalette.cardBg) <= lum(lightPalette.pageBg) {
 		t.Error("in the light appearance the panel is not lighter than the page")
 	}
 	if lum(lightPalette.cardBg2) >= lum(lightPalette.cardBg) {
 		t.Error("in the light appearance a control does not recede into its panel")
+	}
+	if lum(lightPalette.cardBg3) >= lum(lightPalette.cardBg2) {
+		t.Error("in the light appearance a hovered control does not recede further than a resting one")
 	}
 }
