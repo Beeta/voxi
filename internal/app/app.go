@@ -128,20 +128,7 @@ func Run() error {
 	// Context.Theme; this only tells the backend and the window chrome.
 	mygo.Theme.SetSource(appearanceSource(set.snapshot().Appearance))
 	mygo.App.WhenReady(func() {
-		win := mygo.NewWindow(mygo.WindowOptions{
-			Title: "Voxi",
-			// 968x704 is 880x640 grown by 10%; the settings dialog in
-			// settingsview.go scaled by the same factor.
-			Width:     968,
-			Height:    704,
-			MinWidth:  720,
-			MinHeight: 480,
-			// The window's own color, seen for the instant before the first
-			// frame paints; the app draws over it after that. Both
-			// appearances, so that instant is not a flash of the other one.
-			BackgroundColor: "light-dark(#f2f2f7, #1c1c1e)",
-			Content:         ui.View(a.view),
-		})
+		win := mygo.NewWindow(windowOptions(ui.View(a.view)))
 		update := func() { win.Update(func() {}) }
 		a.mu.Lock()
 		a.notify = update
@@ -150,4 +137,35 @@ func Run() error {
 		go a.tick()
 	})
 	return mygo.App.Run()
+}
+
+// windowOptions is the main window: what a first run opens at, and what the
+// app remembers of it afterwards. Its own function so the remembering can be
+// tested — a window without a state key loses the user's size silently, with
+// nothing failing.
+func windowOptions(content mygo.Content) mygo.WindowOptions {
+	return mygo.WindowOptions{
+		Title: "Voxi",
+		// 968x704 is 880x640 grown by 10%; the settings dialog in
+		// settingsview.go scaled by the same factor. It is what a first run
+		// opens at: once the user has sized the window, the state below
+		// opens it where and how they left it.
+		Width:     968,
+		Height:    704,
+		MinWidth:  720,
+		MinHeight: 480,
+		// StateKey remembers the window's position, size and maximized and
+		// full screen state, in window-state.json beside the settings, and
+		// gives them back at the next launch — as long as the window would
+		// still show on a connected display, which is what keeps a window
+		// parked on a since-unplugged monitor from opening off screen. It
+		// also keeps a size the display no longer has room for from
+		// opening larger than the screen.
+		StateKey: "main",
+		// The window's own color, seen for the instant before the first
+		// frame paints; the app draws over it after that. Both appearances,
+		// so that instant is not a flash of the other one.
+		BackgroundColor: "light-dark(#f2f2f7, #1c1c1e)",
+		Content:         content,
+	}
 }
