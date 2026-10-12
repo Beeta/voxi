@@ -77,7 +77,7 @@ mygo build .
 ```
 build/darwin-arm64/
   有听有记Voxi.app          12.7 MB
-  有听有记Voxi 0.1.0.dmg     3.8 MB     # 名字是「应用名 版本号.dmg」，版本号取自 mygo.json
+  有听有记Voxi 0.2.0.dmg     3.8 MB     # 名字是「应用名 版本号.dmg」，版本号取自 mygo.json
 ```
 
 dmg 用系统自带的 `hdiutil` 生成，打开后是一个把应用拖进 `Applications` 的窗口（Finder 布局由生成好的 `.DS_Store` 决定）。相关开关：
@@ -161,7 +161,7 @@ internal/tunnel/  cloudflared quick tunnel，供 ASR 从公网取音频
 
 窗口的大小、位置和最大化状态记在应用数据目录的 `window-state.json`（由 mygo 维护），下次打开时恢复。若原来那块屏幕已经不在了，窗口会回到主屏并夹到工作区大小，不会跑到看不见的地方。
 
-弹窗底部显示当前版本（取自 `mygo.json` 的 `version`）；裸 `go run` 出来的构建不带版本号，那里显示 `版本 dev`。
+弹窗底部显示当前版本（取自 `mygo.json` 的 `version`）；裸 `go run` 出来的构建不带版本号，那里显示 `版本 dev`。每个版本改了什么见 [`CHANGELOG.md`](CHANGELOG.md)。
 
 ## 管理与识别
 
