@@ -14,22 +14,6 @@ import (
 	"github.com/Beeta/voxi/internal/store"
 )
 
-// The palette.
-var (
-	pageBg  = ui.Hex("#1c1c1e")
-	cardBg  = ui.Hex("#2c2c2e")
-	line    = ui.Hex("#3a3a3c")
-	ink     = ui.Hex("#f5f5f7")
-	muted   = ui.Hex("#9a9a9e")
-	accent  = ui.Hex("#0a84ff")
-	recRed  = ui.Hex("#ff453a")
-	okGreen = ui.Hex("#30d158")
-	cardBg2 = ui.Hex("#333335")
-	// btnStroke outlines a cardBg2 button, which is too close to its own
-	// fill to read as a button without it.
-	btnStroke = ui.Hex("#ffffff33")
-)
-
 // app is the whole UI: the recording library, the current selection and its
 // player, plus transient record/transcribe state. mu guards the fields that
 // background goroutines (capture + ASR) touch while the UI thread reads them.
@@ -132,17 +116,23 @@ func Run() error {
 		return err
 	}
 	a := newApp(st, set, audio.NewRecorder())
-	mygo.Theme.SetSource(mygo.ThemeDark)
+	// The saved appearance, applied before the first frame so the window
+	// never opens in the wrong one. The views follow it through
+	// Context.Theme; this only tells the backend and the window chrome.
+	mygo.Theme.SetSource(appearanceSource(set.snapshot().Appearance))
 	mygo.App.WhenReady(func() {
 		win := mygo.NewWindow(mygo.WindowOptions{
 			Title: "Voxi",
 			// 968x704 is 880x640 grown by 10%; the settings dialog in
 			// settingsview.go scaled by the same factor.
-			Width:           968,
-			Height:          704,
-			MinWidth:        720,
-			MinHeight:       480,
-			BackgroundColor: "#1c1c1e",
+			Width:     968,
+			Height:    704,
+			MinWidth:  720,
+			MinHeight: 480,
+			// The window's own color, seen for the instant before the first
+			// frame paints; the app draws over it after that. Both
+			// appearances, so that instant is not a flash of the other one.
+			BackgroundColor: "light-dark(#f2f2f7, #1c1c1e)",
 			Content:         ui.View(a.view),
 		})
 		update := func() { win.Update(func() {}) }

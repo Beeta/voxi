@@ -12,8 +12,8 @@ import (
 )
 
 // Settings is the app's persisted configuration: which sources to capture,
-// where the recordings go, the ASR key, and the single OpenAI-compatible LLM
-// endpoint.
+// where the recordings go, the ASR key, the single OpenAI-compatible LLM
+// endpoint, and the appearance.
 type Settings struct {
 	Mic             bool   `json:"mic"`             // capture the microphone
 	System          bool   `json:"system"`          // capture the system output
@@ -23,6 +23,9 @@ type Settings struct {
 	LLMBaseURL      string `json:"llmBaseURL"`      // OpenAI-compatible chat/completions endpoint
 	LLMKey          string `json:"llmKey"`          // LLM api key
 	LLMModel        string `json:"llmModel"`        // model id
+	// Appearance is "light", "dark", or "system"; empty follows the system,
+	// which is also what a settings file written before this existed means.
+	Appearance string `json:"appearance"`
 }
 
 // recordingsDir returns where new recordings are written: the configured

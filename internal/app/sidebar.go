@@ -9,11 +9,12 @@ import (
 )
 
 func (a *app) view(c *ui.Context) {
+	// The framework has already picked the light or dark theme for the
+	// appearance in force, following the system when the settings ask it
+	// to; useAppearance takes that choice and paints the app's own colors
+	// over it.
 	t := *c.Theme()
-	t.Dark = true
-	t.Background, t.Surface, t.Border = pageBg, cardBg, line
-	t.Text, t.TextMuted, t.Accent = ink, muted, accent
-	t.SurfaceHover, t.SurfacePressed = cardBg2, cardBg2
+	useAppearance(&t)
 	c.SetTheme(&t)
 
 	if ok, reason := a.rec.Available(); !ok {

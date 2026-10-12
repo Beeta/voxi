@@ -77,7 +77,7 @@ func (a *app) speakerRenameModal(c *ui.Context, rec store.Recording) {
 					a.applyRename(rec, false)
 				}
 				all := ui.ButtonBase(c.Key("all")).Padding(8, 14).Radius(8).Center().Background(accent)
-				all.Children(func() { ui.Text(c, "全部相同").FontSize(13).Bold().TextColor(ui.Hex("#ffffff")) })
+				all.Children(func() { ui.Text(c, "全部相同").FontSize(13).Bold().TextColor(onAccent) })
 				if all.Clicked() {
 					a.applyRename(rec, true)
 				}

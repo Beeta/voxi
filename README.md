@@ -130,6 +130,7 @@ xattr -dr com.apple.quarantine /Applications/有听有记Voxi.app
 ```
 cmd/voxi/         程序入口
 internal/app/     界面与状态：录音库、播放器，以及录制 / 转写 / 摘要 / 脑图 / 问答 / 笔记
+internal/md/      摘要的 Markdown 解析与绘制（块级 / 行内 / 表格）
 internal/audio/   音频捕获、AAC 编码与播放（macOS 部分走 ScreenCaptureKit + purego，无需 cgo）
 internal/store/   录音库的 JSON 索引与数据模型
 internal/asr/     火山引擎「豆包语音」录音文件识别
@@ -149,8 +150,9 @@ internal/tunnel/  cloudflared quick tunnel，供 ASR 从公网取音频
 
 ## 设置
 
-点侧边栏右上角的齿轮打开设置弹窗，分三部分：
+点侧边栏右上角的齿轮打开设置弹窗，分四部分：
 
+- **外观**：浅色、深色，或跟随系统（默认）。改完立即生效，弹窗背后就是效果。
 - **录制**：勾选要捕获的音频源（麦克风、系统输出），以及录音文件的存放位置（默认是下载目录）。改到别的目录时可以选择把已有录音一起搬过去；不搬的话旧录音留在原处，仍可播放和识别。
 - **语音识别（豆包语音）**：填写 [豆包语音](https://console.volcengine.com/speech/new/experience/asr) 的 API Key 与 cloudflared 可执行文件路径（默认 `/opt/homebrew/bin/cloudflared`），用于录音转写。
 - **大模型（LLM）**：配置一个 OpenAI 兼容的接入点——Base URL、API Key、模型 ID，驱动摘要 / 脑图 / 问答；Base URL 输入框下方会实时显示最终请求的完整地址（省得猜 `/v1` 该不该写），可点「验证连接」向该地址发一个最小请求实测是否可用。

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/Beeta/voxi/internal/tunnel"
 )
@@ -22,13 +23,14 @@ func (a *app) settingsModal(c *ui.Context, windowH float32) {
 			ui.Row(c).AlignItems(ui.Center).Children(func() {
 				ui.Text(c, "设置").FontSize(18).Bold().TextColor(ink).Grow(1)
 				done := ui.ButtonBase(c.Key("set-done")).Padding(6, 14).Radius(8).Center().Background(accent)
-				done.Children(func() { ui.Text(c, "完成").FontSize(13).Bold().TextColor(ui.Hex("#ffffff")) })
+				done.Children(func() { ui.Text(c, "完成").FontSize(13).Bold().TextColor(onAccent) })
 				if done.Clicked() {
 					a.showSettings = false
 				}
 			})
 			ui.Scroll(c.Key("set-scroll")).MaxHeight(body).Label("设置内容").Children(func() {
 				ui.Column(c).Gap(22).Padding(0, 2).Children(func() {
+					a.appearanceSettings(c, s)
 					a.recordSettings(c, s)
 					a.asrSettings(c, s)
 					a.llmSettings(c, s)
@@ -81,6 +83,32 @@ func settingsBodyHeight(windowH float32) float32 {
 		return settingsBodyFallback
 	}
 	return float32(maxf(float64(windowH-settingsBodyChrome), settingsBodyFloor))
+}
+
+// appearanceSettings picks the light or dark look. It is the first section,
+// being the one the whole dialog is drawn in: a change takes effect behind
+// the dialog as it is made.
+func (a *app) appearanceSettings(c *ui.Context, s Settings) {
+	a.settingsSection(c, "外观", func() {
+		ui.Row(c).AlignItems(ui.Center).Gap(12).Children(func() {
+			ui.Column(c).Grow(1).Gap(2).Children(func() {
+				ui.Text(c, "主题").FontSize(14).TextColor(ink)
+				ui.Text(c, "跟随系统，或固定为浅色或深色").FontSize(12).TextColor(muted)
+			})
+			idx := appearanceIndex(s.Appearance)
+			ui.Segmented(c.Key("appearance"), &idx, appearanceLabels...)
+			if idx != appearanceIndex(s.Appearance) {
+				a.setAppearance(appearanceNames[idx])
+			}
+		})
+	})
+}
+
+// setAppearance saves the choice and hands it to the framework, which
+// repaints every window with it.
+func (a *app) setAppearance(name string) {
+	a.settings.update(func(st *Settings) { st.Appearance = name })
+	mygo.Theme.SetSource(appearanceSource(name))
 }
 
 // recordSettings toggles the capture sources.

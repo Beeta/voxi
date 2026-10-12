@@ -9,14 +9,18 @@ import (
 	"github.com/Beeta/voxi/internal/store"
 )
 
-// mdPalette is how a summary's Markdown is drawn, in the app's palette.
-var mdPalette = md.Palette{
-	Text:    ink,
-	Muted:   muted,
-	Accent:  accent,
-	Surface: cardBg2,
-	Border:  line,
-	Size:    14,
+// mdPalette is how a summary's Markdown is drawn, in the colors of the
+// appearance in force. It is read per frame rather than held in a variable,
+// so a change of appearance reaches the Markdown too.
+func mdPalette() md.Palette {
+	return md.Palette{
+		Text:    ink,
+		Muted:   muted,
+		Accent:  accent,
+		Surface: cardBg2,
+		Border:  line,
+		Size:    14,
+	}
 }
 
 // mdEntry is a parsed Markdown document, kept so the view does not reparse
@@ -88,7 +92,7 @@ func (a *app) summaryPrompt(c *ui.Context, rec store.Recording, busy bool) {
 				b.Background(cardBg2)
 			}
 			b.Children(func() {
-				fg := ui.Hex("#ffffff")
+				fg := onAccent
 				if off {
 					fg = muted
 				}
@@ -156,5 +160,5 @@ func (a *app) markdown(c *ui.Context, key, src string) {
 		e = mdEntry{src: src, blocks: md.Parse(src)}
 		a.mdCache[key] = e
 	}
-	md.Render(c, e.blocks, mdPalette)
+	md.Render(c, e.blocks, mdPalette())
 }

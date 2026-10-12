@@ -29,7 +29,7 @@ func (a *app) playerBar(c *ui.Context, rec store.Recording) {
 	ui.Row(c).Gap(14).AlignItems(ui.Center).Children(func() {
 		btn := ui.ButtonBase(c.Key("play")).Size(46, 46).Radius(999).Center().Background(accent)
 		btn.Children(func() {
-			ui.Icon(c, playIcon(playing)).FontSize(18).TextColor(ui.Hex("#ffffff"))
+			ui.Icon(c, playIcon(playing)).FontSize(18).TextColor(onAccent)
 		})
 		if btn.Clicked() {
 			a.togglePlay()

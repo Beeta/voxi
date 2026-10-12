@@ -40,7 +40,7 @@ func (a *app) chatBubble(c *ui.Context, i int, m store.ChatMessage) {
 		}
 		bg, fg := cardBg, ink
 		if user {
-			bg, fg = accent, ui.Hex("#ffffff")
+			bg, fg = accent, onAccent
 		}
 		ui.Column(c).Padding(10, 14).Radius(12).Background(bg).MaxWidth(460).Children(func() {
 			ui.Text(c, text).FontSize(14).TextColor(fg).Selectable()
@@ -69,7 +69,7 @@ func (a *app) qaInput(c *ui.Context, rec store.Recording, busy bool) {
 				b.Background(cardBg2)
 			}
 			b.Children(func() {
-				fg := ui.Hex("#ffffff")
+				fg := onAccent
 				if off {
 					fg = muted
 				}

@@ -21,7 +21,7 @@ func (a *app) recordControl(c *ui.Context) {
 				ui.Text(c, formatClock(elapsed)).FontSize(15).Bold().TextColor(recRed)
 			})
 			stop := ui.ButtonBase(c.Key("stop")).Padding(10, 14).Radius(8).Center().Background(recRed)
-			stop.Children(func() { ui.Text(c, "停止并保存").FontSize(13).Bold().TextColor(ui.Hex("#ffffff")) })
+			stop.Children(func() { ui.Text(c, "停止并保存").FontSize(13).Bold().TextColor(onAccent) })
 			if stop.Clicked() {
 				a.stopRecording()
 			}

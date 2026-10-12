@@ -50,7 +50,7 @@ func drawCheckbox(c *ui.Context, on bool) {
 	box := ui.Column(c).Size(20, 20).Radius(6).Center().Background(bg).Border(1, brd)
 	if on {
 		box.Children(func() {
-			ui.Icon(c, iconCheck).FontSize(13).TextColor(ui.Hex("#ffffff"))
+			ui.Icon(c, iconCheck).FontSize(13).TextColor(onAccent)
 		})
 	}
 }
