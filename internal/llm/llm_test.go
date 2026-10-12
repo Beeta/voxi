@@ -6,8 +6,8 @@ import (
 )
 
 // TestSummarizeSendsTheInstructionVerbatim pins the contract: the instruction
-// is the whole system message, with nothing appended, and the transcript is
-// the whole user message. What the model is asked for is exactly what the
+// is the whole system message, with nothing appended, and the transcript
+// follows in the user turn. What the model is asked for is exactly what the
 // caller wrote.
 func TestSummarizeSendsTheInstructionVerbatim(t *testing.T) {
 	const instruction = "生成会议纪要，按议题分组，标出每个议题的结论"
@@ -23,11 +23,14 @@ func TestSummarizeSendsTheInstructionVerbatim(t *testing.T) {
 	if msgs[0].Content != instruction {
 		t.Errorf("the system message is\n%q\nwant the instruction untouched:\n%q", msgs[0].Content, instruction)
 	}
+	if strings.Contains(msgs[0].Content, transcript) {
+		t.Error("the transcript leaked into the system message")
+	}
 	if msgs[1].Role != "user" {
 		t.Errorf("the second message has role %q, want the user one", msgs[1].Role)
 	}
-	if msgs[1].Content != transcript {
-		t.Errorf("the user message is %q, want the transcript alone", msgs[1].Content)
+	if !strings.Contains(msgs[1].Content, transcript) {
+		t.Errorf("the user message does not carry the transcript: %q", msgs[1].Content)
 	}
 }
 

@@ -46,14 +46,15 @@ func (c Client) Summarize(transcript, prompt string) (*store.Summary, error) {
 }
 
 // summarizeMessages builds the chat messages for Summarize: the instruction
-// verbatim as the system message, the transcript alone as the user one.
+// verbatim as the system message, then the transcript, labelled, as the user
+// one.
 func summarizeMessages(transcript, prompt string) []chatMessage {
 	if prompt == "" {
 		prompt = DefaultSummaryPrompt
 	}
 	return []chatMessage{
 		{Role: "system", Content: prompt},
-		{Role: "user", Content: transcript},
+		{Role: "user", Content: "转写内容：\n" + transcript},
 	}
 }
 
