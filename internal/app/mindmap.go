@@ -5,35 +5,20 @@ import (
 	"github.com/Beeta/voxi/internal/store"
 )
 
-// mindmapView is the mind-map tab: a generate button, then the outline tree
-// rendered as collapsible indented rows.
+// mindmapView is the mind-map tab: the outline tree rendered as collapsible
+// indented rows. The generate button is in the player bar (mindmapAction).
 func (a *app) mindmapView(c *ui.Context, rec store.Recording) {
 	a.mu.Lock()
 	busy := a.mindmapping[rec.ID]
 	a.mu.Unlock()
-	hasTranscript := rec.Transcript != nil
 	ui.Column(c).Gap(16).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Gap(10).Children(func() {
-			ui.Text(c, "脑图大纲").FontSize(13).Bold().TextColor(muted).Grow(1)
-			if !busy && hasTranscript {
-				label := "生成脑图"
-				if rec.Mindmap != nil {
-					label = "重新生成"
-				}
-				b := ui.ButtonBase(c.Key("gen-mind")).Padding(8, 16).Radius(8).Center().Background(cardBg2).Border(1, accent)
-				b.Children(func() { ui.Text(c, label).FontSize(12).Bold().TextColor(accent) })
-				if b.Clicked() {
-					a.generateMindmap(rec)
-				}
-			}
-		})
 		switch {
 		case busy:
 			loadingRow(c, "正在生成脑图…")
-		case !hasTranscript:
-			ui.Text(c, "请先在「转写」页签完成识别。").FontSize(13).TextColor(muted)
+		case rec.Transcript == nil:
+			ui.Text(c, "请先在「转写」页完成识别，再点底部的「生成脑图」。").FontSize(13).TextColor(muted)
 		case rec.Mindmap == nil || rec.Mindmap.Root == nil:
-			ui.Text(c, "还没有脑图。点击「生成脑图」。").FontSize(13).TextColor(muted)
+			ui.Text(c, "还没有脑图。点底部的「生成脑图」。").FontSize(13).TextColor(muted)
 		default:
 			if rec.Mindmap.Stale {
 				ui.Text(c, "⚠ 转写已更新，脑图可能过期，建议重新生成。").FontSize(12).TextColor(recRed)
@@ -41,6 +26,24 @@ func (a *app) mindmapView(c *ui.Context, rec store.Recording) {
 			a.mindNode(c, rec.Mindmap.Root, "")
 		}
 	})
+}
+
+// mindmapAction generates or regenerates the mind map from the player bar,
+// disabled until there is a transcript. It steps aside while generation runs.
+func (a *app) mindmapAction(c *ui.Context, rec store.Recording) {
+	a.mu.Lock()
+	busy := a.mindmapping[rec.ID]
+	a.mu.Unlock()
+	if busy {
+		return
+	}
+	label := "生成脑图"
+	if rec.Mindmap != nil {
+		label = "重新生成"
+	}
+	if actionButton(c, "gen-mind", label, rec.Transcript == nil).Clicked() {
+		a.generateMindmap(rec)
+	}
 }
 
 // mindNode renders one outline node and, when expanded, its children indented

@@ -30,66 +30,49 @@ type mdEntry struct {
 	blocks []md.Block
 }
 
-// summaryView is the summary tab: the tab's own row with the generate
-// button, the editable generation prompt, then the generated summary
-// (overview + highlights + action items).
+// summaryView is the summary tab: the editable generation prompt on top, then
+// the generated summary (overview + highlights + action items). The generate
+// button is in the player bar (summaryAction), not here.
 func (a *app) summaryView(c *ui.Context, rec store.Recording) {
 	a.mu.Lock()
 	busy := a.summarizing[rec.ID]
 	a.mu.Unlock()
 	ui.Column(c).Gap(16).Children(func() {
-		a.summaryHeader(c, rec, busy)
 		a.summaryPrompt(c, rec)
 		switch {
 		case busy:
 			loadingRow(c, "正在生成摘要…")
+		case rec.Transcript == nil:
+			ui.Text(c, "请先在「转写」页完成识别，再点底部的「生成摘要」。").FontSize(13).TextColor(muted)
 		case rec.Summary == nil:
-			ui.Text(c, "还没有摘要。编辑上面的生成指令后点击「生成摘要」。").FontSize(13).TextColor(muted)
+			ui.Text(c, "还没有摘要。编辑上面的生成指令后点底部的「生成摘要」。").FontSize(13).TextColor(muted)
 		default:
 			a.summaryBody(c, rec)
 		}
 	})
 }
 
-// summaryHeader is the row over the tab: what the page is, and the button
-// that generates it. The transcript tab has the same row, and both keep the
-// action out of the card holding its input — the button is about the
-// summary, not about the prompt. The button steps aside while the work is
-// running, as the transcript tab's does.
-func (a *app) summaryHeader(c *ui.Context, rec store.Recording, busy bool) {
-	hasTranscript := rec.Transcript != nil
-	ui.Row(c).AlignItems(ui.Center).Gap(10).Children(func() {
-		ui.Text(c, "摘要").FontSize(13).Bold().TextColor(muted).Grow(1)
-		if !hasTranscript {
-			ui.Text(c, "请先在「转写」页签完成识别。").FontSize(12).TextColor(muted)
+// summaryAction generates or regenerates the summary from the player bar,
+// disabled until there is a transcript. It commits any edited prompt first,
+// and steps aside while generation runs.
+func (a *app) summaryAction(c *ui.Context, rec store.Recording) {
+	a.mu.Lock()
+	busy := a.summarizing[rec.ID]
+	a.mu.Unlock()
+	if busy {
+		return
+	}
+	label := "生成摘要"
+	if rec.Summary != nil {
+		label = "重新生成"
+	}
+	if actionButton(c, "gen-sum", label, rec.Transcript == nil).Clicked() {
+		if d, ok := a.draftPrompt[rec.ID]; ok {
+			a.lib.SetSummaryPrompt(rec.ID, d)
+			rec.SummaryPrompt = d
 		}
-		if busy {
-			return
-		}
-		label := "生成摘要"
-		if rec.Summary != nil {
-			label = "重新生成"
-		}
-		off := !hasTranscript
-		b := ui.ButtonBase(c.Key("gen-sum")).Padding(8, 16).Radius(8).Center().Background(accent).Disabled(off)
-		if off {
-			b.Background(cardBg2)
-		}
-		b.Children(func() {
-			fg := onAccent
-			if off {
-				fg = muted
-			}
-			ui.Text(c, label).FontSize(12).Bold().TextColor(fg)
-		})
-		if !off && b.Clicked() {
-			if d, ok := a.draftPrompt[rec.ID]; ok {
-				a.lib.SetSummaryPrompt(rec.ID, d)
-				rec.SummaryPrompt = d
-			}
-			a.generateSummary(rec)
-		}
-	})
+		a.generateSummary(rec)
+	}
 }
 
 // summaryPrompt is the collapsible, editable instruction the summary is

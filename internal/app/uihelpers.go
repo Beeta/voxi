@@ -28,6 +28,22 @@ func controlFill(e ui.Element, rest, hover ui.Color) ui.Color {
 	return rest
 }
 
+// actionButton is a tab's primary action in the player bar: an outlined
+// accent button, dimmed to a muted outline while disabled. The bar already
+// carries a filled accent play button, so these stay outlined rather than
+// adding a second solid accent block. It returns the button so the caller
+// reads Clicked; a disabled one never reports a click.
+func actionButton(c *ui.Context, key, label string, off bool) ui.Element {
+	fg, brd := accent, accent
+	if off {
+		fg, brd = muted, line
+	}
+	b := ui.ButtonBase(c.Key(key)).Padding(8, 16).Radius(8).Center().Border(1, brd).Disabled(off)
+	b.Background(controlFill(b, cardBg2, cardBg3))
+	b.Children(func() { ui.Text(c, label).FontSize(12).Bold().TextColor(fg) })
+	return b
+}
+
 func formatClock(d time.Duration) string {
 	s := int(d.Seconds())
 	return fmt.Sprintf("%02d:%02d", s/60, s%60)
