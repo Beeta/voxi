@@ -58,10 +58,16 @@ type ChatMessage struct {
 
 // Recording is one captured file and what the library knows about it.
 type Recording struct {
-	ID            string        `json:"id"`
-	Name          string        `json:"name"`
-	File          string        `json:"file"` // relative to the recordings directory, or absolute when outside it
-	Created       time.Time     `json:"created"`
+	ID      string    `json:"id"`
+	Name    string    `json:"name"`
+	File    string    `json:"file"` // relative to the recordings directory, or absolute when outside it
+	Created time.Time `json:"created"`
+	// AudioDeleted marks a recording whose audio the user threw away on
+	// purpose, keeping the text. File is empty with it, so the two together
+	// say the entry never had audio (neither), lost it on purpose
+	// (AudioDeleted), or lost it without anyone asking (File set, file
+	// gone) — three cases the view says differently.
+	AudioDeleted  bool          `json:"audioDeleted,omitempty"`
 	Duration      float64       `json:"duration"` // seconds
 	Transcript    *Transcript   `json:"transcript,omitempty"`
 	Summary       *Summary      `json:"summary,omitempty"`
@@ -173,6 +179,15 @@ func (s *Store) MigrateTo(dir string) (int, error) {
 	var done []moved
 	for _, r := range s.recs {
 		abs := s.resolve(r.File)
+		if abs == "" {
+			continue // no audio to move
+		}
+		if _, err := os.Stat(abs); err != nil {
+			// The file is gone — deleted on purpose, or removed in the
+			// Finder. Skipping it keeps one missing file from failing the
+			// whole migration and rolling back everything already moved.
+			continue
+		}
 		if rel, err := filepath.Rel(s.root, abs); err != nil || !isInside(rel) {
 			continue // not ours to move
 		}
@@ -367,6 +382,18 @@ func (s *Store) Remove(id string) {
 			s.saveLocked()
 			return
 		}
+	}
+}
+
+// DropAudio forgets a recording's audio, keeping everything else it holds.
+// The file itself is deleted by the caller; this only stops the entry
+// pointing at it, and records that it was dropped on purpose.
+func (s *Store) DropAudio(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if r := s.find(id); r != nil {
+		r.File, r.AudioDeleted = "", true
+		s.saveLocked()
 	}
 }
 

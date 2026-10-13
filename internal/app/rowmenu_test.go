@@ -19,8 +19,8 @@ func TestRowContextMenu(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	first := lib.Add("第一次", filepath.Join(dir, "one.m4a"), 3)
-	second := lib.Add("第二次", filepath.Join(dir, "two.m4a"), 4)
+	first := lib.Add("第一次", touchFile(t, dir, "one.m4a"), 3)
+	second := lib.Add("第二次", touchFile(t, dir, "two.m4a"), 4)
 	set := &settingsStore{path: filepath.Join(dir, "settings.json"), s: &Settings{}}
 	a := newApp(lib, set, audio.NewRecorder())
 	// The selection deliberately differs from the row the menu opens on:
@@ -44,7 +44,7 @@ func TestRowContextMenu(t *testing.T) {
 	if err := tt.RightClick("第二次"); err != nil {
 		t.Fatal(err)
 	}
-	if got := tt.Menu(); !slices.Equal(got, []string{"重命名", "在访达中显示", "-", "删除"}) {
+	if got := tt.Menu(); !slices.Equal(got, []string{"重命名", "在访达中显示", "-", "删除音频文件（保留文字）", "删除条目"}) {
 		t.Fatalf("the row menu is %q", got)
 	}
 
@@ -81,7 +81,7 @@ func TestRowContextMenu(t *testing.T) {
 	if err := tt.RightClick("改过的名字"); err != nil {
 		t.Fatal(err)
 	}
-	if err := tt.ChooseMenuItem("删除"); err != nil {
+	if err := tt.ChooseMenuItem("删除条目"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()

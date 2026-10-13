@@ -39,6 +39,7 @@ func (a *app) view(c *ui.Context) {
 	// time the dialog's button is clicked.
 	a.renameRecModal(c)
 	a.deleteConfirm(c)
+	a.dropAudioConfirm(c)
 	a.importFailureDialog(c)
 }
 
@@ -153,15 +154,23 @@ func (a *app) fileRow(c *ui.Context, rec store.Recording) {
 	// A row's actions live on its context menu rather than in the detail
 	// pane's action bar, which a right-clicked row is not always the one
 	// showing.
+	//
+	// Two deletes, named for what they take: the audio alone, or the whole
+	// entry. Only one of them is offered once the audio is gone, so the
+	// menu never leads to a dialog that can only say no.
+	audio := hasAudio(rec)
 	row.ContextMenu(func(m *ui.Menu) {
 		if m.Item("重命名").Chosen() {
 			a.renameRecOpen, a.renameRecID, a.renameRecName = true, rec.ID, rec.Name
 		}
-		if m.Item("在访达中显示").Chosen() {
+		if audio && m.Item("在访达中显示").Chosen() {
 			mygo.Shell.ShowItemInFolder(rec.File)
 		}
 		m.Separator()
-		if m.Item("删除").Chosen() {
+		if audio && m.Item("删除音频文件（保留文字）").Chosen() {
+			a.delAudioID, a.confirmDelAudio = rec.ID, true
+		}
+		if m.Item("删除条目").Chosen() {
 			a.delRecID, a.confirmDel = rec.ID, true
 		}
 	})

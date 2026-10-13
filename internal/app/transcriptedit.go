@@ -6,10 +6,12 @@ import (
 )
 
 // segmentRow renders one transcript segment: a clickable speaker chip, a
-// clickable timestamp (seeks), and the text — click it to edit inline, which
-// auto-saves. The segment being edited is tracked by a.editSeg. tint is the
-// fill this speaker's chip is drawn in.
-func (a *app) segmentRow(c *ui.Context, rec store.Recording, i int, seg store.Segment, active bool, tint ui.Color) {
+// timestamp (click it to seek, when there is audio to seek in), and the text
+// — click it to edit inline, which auto-saves. The segment being edited is
+// tracked by a.editSeg. tint is the fill this speaker's chip is drawn in;
+// seekable is whether the recording still has audio for the timestamp to
+// jump into.
+func (a *app) segmentRow(c *ui.Context, rec store.Recording, i int, seg store.Segment, active, seekable bool, tint ui.Color) {
 	row := ui.Row(c.Key(i)).Padding(8, 10).Gap(12).Radius(8).AlignItems(ui.Start)
 	switch {
 	case active:
@@ -35,9 +37,12 @@ func (a *app) segmentRow(c *ui.Context, rec store.Recording, i int, seg store.Se
 		if active {
 			tc = accent
 		}
-		ts := ui.Column(c.Key("ts")).Cursor(ui.CursorPointer)
+		ts := ui.Column(c.Key("ts"))
+		if seekable {
+			ts.Cursor(ui.CursorPointer)
+		}
 		ts.Children(func() { ui.Text(c, formatSecs(seg.Start)).FontSize(12).Bold().TextColor(tc).Width(46) })
-		if ts.Clicked() {
+		if seekable && ts.Clicked() {
 			a.seekTo(seg.Start)
 		}
 		if a.editSeg == i {

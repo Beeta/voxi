@@ -58,3 +58,30 @@ func (a *app) deleteConfirm(c *ui.Context) {
 		a.delRecID = ""
 	}
 }
+
+// dropAudioConfirm confirms throwing away a recording's audio while keeping
+// its text.
+//
+// Without a transcript there is no text to keep, so that case says plainly
+// what is about to be lost and points at the other delete — the one that
+// takes the empty entry with it — rather than letting the user end up with a
+// row that holds nothing and cannot be transcribed again.
+func (a *app) dropAudioConfirm(c *ui.Context) {
+	if !a.confirmDelAudio {
+		return
+	}
+	rec, ok := a.lib.Get(a.delAudioID)
+	if !ok {
+		a.confirmDelAudio, a.delAudioID = false, ""
+		return
+	}
+	body := "音频文件移到废纸篓，转写、摘要、脑图、笔记和问答都保留。"
+	if rec.Transcript == nil {
+		body = "这条录音还没转写成文字。删掉音频就再也转写不了，条目里将什么都不剩——" +
+			"如果确实不再需要它，请改用「删除条目」。"
+	}
+	if i := ui.AlertDialog(c.Key("delaudioq"), &a.confirmDelAudio, "删除音频文件？", body, "删除音频", "取消"); i == 0 {
+		a.dropAudio(rec)
+		a.delAudioID = ""
+	}
+}

@@ -125,14 +125,22 @@ func TestMigrateToLeavesOutsideFilesAlone(t *testing.T) {
 
 // TestMigrateToRollsBackOnFailure makes the second move fail and checks the
 // first one was put back, so a failed migration leaves the library as it was.
+//
+// The failure is a directory sitting where the file would land, which no
+// rename or copy gets past. It used to be a recording whose file was never
+// written — but a file that is simply gone is now skipped, so that no longer
+// stops a migration.
 func TestMigrateToRollsBackOnFailure(t *testing.T) {
 	s, root := newTestStore(t)
 	first := touch(t, filepath.Join(root, "a.m4a"))
-	second := filepath.Join(root, "b.m4a") // registered, never written
+	second := touch(t, filepath.Join(root, "b.m4a"))
 	a := s.Add("a", first, 1)
 	s.Add("b", second, 1)
 
 	dest := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dest, "b.m4a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := s.MigrateTo(dest); err == nil {
 		t.Fatal("MigrateTo succeeded, want an error")
 	}

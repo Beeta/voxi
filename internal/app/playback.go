@@ -6,9 +6,22 @@ import (
 )
 
 // playerBar is the pane's bottom row: the play button, the elapsed and
-// total time, and the seek bar between them. It is deliberately short — it
-// is a bar under the content, not a panel of its own.
+// total time, and the seek bar between them, then the current tab's action.
+// It is deliberately short — it is a bar under the content, not a panel of
+// its own.
+//
+// A recording whose audio is gone shows why in place of the transport, which
+// would otherwise be a button that does nothing.
 func (a *app) playerBar(c *ui.Context, rec store.Recording) {
+	if !hasAudio(rec) {
+		ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, audioGone(rec)).FontSize(11).TextColor(muted).Grow(1)
+			// The tab's own action still stands: a summary is built from
+			// the text, which is exactly what is left.
+			a.tabAction(c, rec)
+		})
+		return
+	}
 	a.ensurePlayer(rec)
 	a.mu.Lock()
 	p := a.player
@@ -95,8 +108,9 @@ func (a *app) tabAction(c *ui.Context, rec store.Recording) {
 	}
 }
 
-// transcribeAction starts or re-runs transcription. While it runs the button
-// steps aside — the transcript tab's body shows the progress instead.
+// transcribeAction starts or re-runs transcription. It is disabled without
+// audio to transcribe, and while it runs the button steps aside — the
+// transcript tab's body shows the progress instead.
 func (a *app) transcribeAction(c *ui.Context, rec store.Recording) {
 	a.mu.Lock()
 	transcribing := a.transcribing[rec.ID]
@@ -108,7 +122,7 @@ func (a *app) transcribeAction(c *ui.Context, rec store.Recording) {
 	if rec.Transcript != nil {
 		label = "重新识别"
 	}
-	if actionButton(c, "asr", label, false).Clicked() {
+	if actionButton(c, "asr", label, !hasAudio(rec)).Clicked() {
 		if rec.Transcript != nil {
 			a.confirmRetrans = true
 		} else {
@@ -122,11 +136,14 @@ func (a *app) segments(c *ui.Context, rec store.Recording) {
 	cur := a.playPos
 	a.mu.Unlock()
 	tints := speakerTintIndexes(rec)
+	// Timestamps seek, so they are only worth clicking while there is
+	// something to seek in.
+	seekable := hasAudio(rec)
 	ui.Column(c).Gap(2).Children(func() {
 		for i := range rec.Transcript.Segments {
 			seg := rec.Transcript.Segments[i]
-			active := cur >= seg.Start && cur < seg.End
-			a.segmentRow(c, rec, i, seg, active, speakers[tints[seg.Speaker]%speakerTintCount])
+			active := seekable && cur >= seg.Start && cur < seg.End
+			a.segmentRow(c, rec, i, seg, active, seekable, speakers[tints[seg.Speaker]%speakerTintCount])
 		}
 	})
 }

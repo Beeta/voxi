@@ -60,7 +60,13 @@ func recMeta(rec store.Recording) string {
 	if rec.Transcript != nil {
 		status = "已识别"
 	}
-	return fmt.Sprintf("%s · %s · %s", rec.Created.Format("01-02 15:04"), formatSecs(rec.Duration), status)
+	meta := fmt.Sprintf("%s · %s · %s", rec.Created.Format("01-02 15:04"), formatSecs(rec.Duration), status)
+	// The row says when there is no audio left to play: the recording is
+	// still here for its text, and the player will not offer anything.
+	if !hasAudio(rec) {
+		meta += " · 无音频"
+	}
+	return meta
 }
 
 func maxf(a, b float64) float64 {

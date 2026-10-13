@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/egoist/mygo"
 	"github.com/Beeta/voxi/internal/asr"
 	"github.com/Beeta/voxi/internal/audio"
 	"github.com/Beeta/voxi/internal/store"
@@ -116,13 +115,8 @@ func guard(fn func() error) (err error) {
 
 // doDelete trashes the audio file and drops the recording from the library.
 func (a *app) doDelete(rec store.Recording) {
-	a.mu.Lock()
-	if a.playerID == rec.ID && a.player != nil {
-		a.player.Close()
-		a.player, a.playerID = nil, ""
-	}
-	a.mu.Unlock()
-	mygo.Shell.TrashItem(rec.File)
+	a.closePlayerFor(rec.ID)
+	a.trashItem(rec.File)
 	a.lib.Remove(rec.ID)
 	a.mu.Lock()
 	// A row can be deleted from its context menu without being the
@@ -136,6 +130,47 @@ func (a *app) doDelete(rec store.Recording) {
 	}
 	a.mu.Unlock()
 	a.ping()
+}
+
+// dropAudio trashes a recording's audio and keeps its text: the transcript,
+// summary, mind map, notes and Q&A all stay, and the entry stays in the
+// library.
+func (a *app) dropAudio(rec store.Recording) {
+	a.closePlayerFor(rec.ID)
+	a.trashItem(rec.File)
+	a.lib.DropAudio(rec.ID)
+	a.ping()
+}
+
+// closePlayerFor lets go of the player if it is playing id.
+func (a *app) closePlayerFor(id string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.playerID == id && a.player != nil {
+		a.player.Close()
+		a.player, a.playerID = nil, ""
+	}
+}
+
+// hasAudio reports whether a recording still has an audio file to play. It
+// answers the same for audio dropped on purpose and for a file that went
+// missing on its own, which is what the views need; audioGone tells the two
+// apart when saying so.
+func hasAudio(rec store.Recording) bool {
+	if rec.File == "" {
+		return false
+	}
+	_, err := os.Stat(rec.File)
+	return err == nil
+}
+
+// audioGone is why a recording has nothing to play, in the words of whoever
+// lost it.
+func audioGone(rec store.Recording) string {
+	if rec.AudioDeleted {
+		return "音频已删除，在废纸篓里；文字内容都保留着"
+	}
+	return "音频文件找不到了；文字内容都保留着"
 }
 
 // defaultFilename is a timestamped name for a new recording.

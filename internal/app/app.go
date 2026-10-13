@@ -8,10 +8,10 @@ package app
 import (
 	"sync"
 
-	"github.com/egoist/mygo"
-	"github.com/egoist/mygo/ui"
 	"github.com/Beeta/voxi/internal/audio"
 	"github.com/Beeta/voxi/internal/store"
+	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/ui"
 )
 
 // app is the whole UI: the recording library, the current selection and its
@@ -40,19 +40,20 @@ type app struct {
 	recording bool
 
 	// UI-thread-only view state (no lock needed).
-	tab            int
-	expanded       map[string]bool   // mind-map node collapse state, keyed by path
-	draftQ         map[string]string // per-recording Q&A input draft
-	draftPrompt    map[string]string // per-recording summary-prompt edit draft
-	promptOpen     map[string]bool   // per-recording: is the summary prompt expanded
-	editSeg        int               // transcript segment index being edited, -1 = none
-	renaming       bool              // speaker-rename modal open
-	renameIdx      int               // segment whose speaker is being renamed
-	renameDraft    string            // speaker name being typed
-	confirmRetrans bool              // re-transcribe confirmation open
-	showSettings   bool
-	confirmDel     bool
-	pickingDir     bool // a recordings-directory dialog is open
+	tab             int
+	expanded        map[string]bool   // mind-map node collapse state, keyed by path
+	draftQ          map[string]string // per-recording Q&A input draft
+	draftPrompt     map[string]string // per-recording summary-prompt edit draft
+	promptOpen      map[string]bool   // per-recording: is the summary prompt expanded
+	editSeg         int               // transcript segment index being edited, -1 = none
+	renaming        bool              // speaker-rename modal open
+	renameIdx       int               // segment whose speaker is being renamed
+	renameDraft     string            // speaker name being typed
+	confirmRetrans  bool              // re-transcribe confirmation open
+	showSettings    bool
+	confirmDel      bool
+	confirmDelAudio bool // dropping the audio while keeping the text
+	pickingDir      bool // a recordings-directory dialog is open
 
 	// The recording row's context menu: which recording it is renaming or
 	// deleting, and the rename draft. A row can be right-clicked without
@@ -62,6 +63,7 @@ type app struct {
 	renameRecID   string
 	renameRecName string
 	delRecID      string
+	delAudioID    string
 
 	// Importing audio files: a chooser or copies are in flight, and what
 	// could not be taken, reported once the batch is done.
@@ -80,6 +82,11 @@ type app struct {
 	// the choice: the real call must run on the main thread, and a test
 	// process has no event loop to run it on.
 	setTheme func(mygo.ThemeSource)
+
+	// trashItem moves a file to the Trash. A field for the same reason as
+	// setTheme: the real one runs on the main thread, so a test that watched
+	// a whole delete would wait for an event loop that never comes.
+	trashItem func(string) error
 
 	// version is the app's version, shown in the settings dialog. It is
 	// empty for a build that carries none, such as a plain `go run`.
@@ -104,6 +111,7 @@ func newApp(st *store.Store, set *settingsStore, rec *audio.Recorder) *app {
 		mdCache:      map[string]mdEntry{},
 		editSeg:      -1,
 		setTheme:     mygo.Theme.SetSource,
+		trashItem:    mygo.Shell.TrashItem,
 	}
 	if recs := st.Snapshot(); len(recs) > 0 {
 		a.selected = recs[0].ID
