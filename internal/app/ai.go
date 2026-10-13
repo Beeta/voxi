@@ -8,7 +8,10 @@ import (
 )
 
 // transcriptText flattens a transcript's segments into newline-joined text for
-// the model. Returns "" when the recording has no transcript yet.
+// the model, prefixing each line with its speaker ("说话人1：…") when the ASR
+// labelled one, so the summary and Q&A can tell who said what and attribute
+// action items. Segments without a speaker are written as the text alone.
+// Returns "" when the recording has no transcript yet.
 func transcriptText(rec store.Recording) string {
 	if rec.Transcript == nil {
 		return ""
@@ -17,6 +20,10 @@ func transcriptText(rec store.Recording) string {
 	for i, s := range rec.Transcript.Segments {
 		if i > 0 {
 			b.WriteByte('\n')
+		}
+		if sp := strings.TrimSpace(s.Speaker); sp != "" {
+			b.WriteString(sp)
+			b.WriteString("：")
 		}
 		b.WriteString(s.Text)
 	}
