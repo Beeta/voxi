@@ -8,12 +8,33 @@ import (
 )
 
 // DefaultSummaryPrompt is the editable instruction shown in the summary tab.
-// It spells out the output shape itself, because nothing is appended to the
-// instruction on the way out: the tab renders overview/highlights/actions as
-// sections, and a reply in any other shape is shown as one block of text.
-const DefaultSummaryPrompt = "请用简洁的中文总结这段录音：先给一句话概览，再列出关键要点，最后列出需要跟进的待办事项。\n\n" +
-	"只输出 JSON，不要解释、不要代码块标记，模式为：" +
-	`{"overview": "一句话概览", "highlights": ["关键要点"], "actions": ["待办事项"]}`
+// It asks for a cleaned-up, structured meeting minute in Markdown, which the
+// tab draws as one Markdown document — headings, lists and the action-item
+// table included (see summaryBody). Nothing is appended to the instruction on
+// the way out, so the output shape is whatever it asks for: only a reply that
+// happens to parse as the summary's JSON shape is drawn as three sections.
+const DefaultSummaryPrompt = `# Role: 你是一位专业的高级项目经理和会议记录专家，具备出色的文本清洗和信息提炼能力。
+# Task: 请对以下由语音识别生成的原始会议转写文本进行**脏数据清理**，并提炼成一份结构清晰、重点突出的正式会议纪要。
+
+## 会议背景：
+[简述会议主题，例如：Q3产品规划评审会]
+
+## 一、 脏数据清洗规范（请在提炼前按此规范处理文本）：
+1. **去除口语与语气词：** 过滤掉"嗯"、"啊"、"这个"、"那个"、"然后"、"就是说"、"对对对"等口语化废话和语气词。
+2. **修正语音识别错误：** 根据上下文逻辑自动修正明显由 ASR（语音识别）产生的同音错别字或断句错误。
+3. **合并重复表达：** 剔除发言者的口吃、重复发言、卡顿以及毫无实际意义的闲聊寒暄。
+4. **优化表述：** 将分散、断续的口语化表达重构为通顺、严谨的书面语，同时严格保留原意，不捏造事实。
+
+## 二、 输出格式要求：
+1. **会议基本信息**（会议主题、核心目标）
+2. **核心决议/结论**（简明扼要列出达成的共识或做出的决策，无需复述讨论过程）
+3. **行动项（Action Items）**（请使用表格列出：` + "`任务内容 | 负责人 | 截止时间`" + `）
+4. **主要讨论点与议题分歧**（分条列出主要议题、各方关键观点及未决事项）
+5. **会议金句与核心洞察**（提炼会议中最具战略启发性、高总结度或代表性的发言/金句，并注明发言人；若无则标注"无"）
+
+## 三、 约束条件：
+- 语言风格需保持客观、专业、精炼。
+- 如果文本中缺少某个要素（如具体负责人或截止时间），请直接标注为"未明确"。`
 
 // Client talks to an OpenAI-compatible chat-completions endpoint configured
 // in settings (Base URL / API Key / model).

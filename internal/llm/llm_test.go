@@ -34,17 +34,14 @@ func TestSummarizeSendsTheInstructionVerbatim(t *testing.T) {
 	}
 }
 
-// TestSummarizeFallsBackToTheDefaultInstruction covers an empty instruction.
-// The default carries the output schema itself, so a user who never opens the
-// editor still gets the tab's three sections rather than one block of text.
+// TestSummarizeFallsBackToTheDefaultInstruction covers an empty instruction:
+// the default instruction is used verbatim.
 func TestSummarizeFallsBackToTheDefaultInstruction(t *testing.T) {
 	msgs := summarizeMessages("转写正文", "")
 	if msgs[0].Content != DefaultSummaryPrompt {
 		t.Errorf("an empty instruction did not fall back to the default:\n%q", msgs[0].Content)
 	}
-	for _, field := range []string{"overview", "highlights", "actions"} {
-		if !strings.Contains(DefaultSummaryPrompt, field) {
-			t.Errorf("the default instruction does not mention %q, so the summary tab would show one block of text", field)
-		}
+	if !strings.Contains(DefaultSummaryPrompt, "会议纪要") {
+		t.Errorf("the default instruction no longer asks for a meeting minute:\n%q", DefaultSummaryPrompt)
 	}
 }
