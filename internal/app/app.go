@@ -65,12 +65,15 @@ type app struct {
 	confirmDelProv  bool
 	// Q&A tab: the archived-conversations view, which of them is expanded,
 	// and the clear / delete-session confirmations.
-	qaHistory         bool
-	qaOpenSession     string
-	confirmClearChat  bool
-	confirmDelSession bool
-	delSessionID      string
-	pickingDir        bool // a recordings-directory dialog is open
+	qaHistory           bool
+	qaFocusInput        bool // focus the Q&A input in the next frame
+	qaCaretEnd          bool // put the caret at the end of the Q&A input then
+	confirmResetPresets bool // settings: replace the Q&A presets with the built-in ones
+	qaOpenSession       string
+	confirmClearChat    bool
+	confirmDelSession   bool
+	delSessionID        string
+	pickingDir          bool // a recordings-directory dialog is open
 
 	// The recording row's context menu: which recording it is renaming or
 	// deleting, and the rename draft. A row can be right-clicked without

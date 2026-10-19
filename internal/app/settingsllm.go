@@ -1,11 +1,12 @@
 package app
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
-	"github.com/egoist/mygo/ui"
 	"github.com/Beeta/voxi/internal/llm"
+	"github.com/egoist/mygo/ui"
 )
 
 // fieldInput is a labeled single-line input.
@@ -262,4 +263,79 @@ next:
 		out = append(out, id)
 	}
 	return out
+}
+
+// qaPresetSettings edits the Q&A tab's saved questions: a short label for
+// the chip and the text it puts in the input, reorderable, deletable, and
+// back to the built-in ones on request.
+func (a *app) qaPresetSettings(c *ui.Context, s Settings) {
+	a.settingsSection(c, "问答预设", func() {
+		ui.Text(c, "问答页输入框上方的快捷问题：点一下填进输入框，可修改后再发送。").FontSize(12).TextColor(muted)
+		n := len(s.QAPresets)
+		for i, p := range s.QAPresets {
+			a.presetRow(c, i, n, p)
+		}
+		ui.Row(c).Gap(10).Children(func() {
+			add := ui.ButtonBase(c.Key("qa-preset-add")).Padding(8, 16).Radius(8).Center().Background(cardBg2).Border(1, line)
+			add.Children(func() { ui.Text(c, "+ 添加预设").FontSize(13).Bold().TextColor(ink) })
+			if add.Clicked() {
+				a.settings.update(func(st *Settings) { st.QAPresets = append(st.QAPresets, QAPreset{}) })
+			}
+			reset := ui.ButtonBase(c.Key("qa-preset-reset")).Padding(8, 16).Radius(8).Center().Border(1, line)
+			reset.Children(func() { ui.Text(c, "恢复默认").FontSize(13).TextColor(muted) })
+			if reset.Clicked() {
+				a.confirmResetPresets = true
+			}
+		})
+	})
+	if i := ui.AlertDialog(c.Key("qa-preset-resetq"), &a.confirmResetPresets, "恢复默认预设？",
+		"将用内置的几条预设替换当前全部预设。", "恢复默认", "取消"); i == 0 {
+		a.settings.update(func(st *Settings) { st.QAPresets = slices.Clone(defaultQAPresets) })
+	}
+}
+
+// presetRow edits preset i of n in place.
+func (a *app) presetRow(c *ui.Context, i, n int, p QAPreset) {
+	edit := func(fn func(*QAPreset)) {
+		a.settings.update(func(st *Settings) {
+			if i < len(st.QAPresets) {
+				fn(&st.QAPresets[i])
+			}
+		})
+	}
+	// Keyed by position: rows are only ever moved or removed by the buttons
+	// here, which rebuild every row below them in the same frame.
+	k := func(s string) string { return "qa-preset-" + strconv.Itoa(i) + "-" + s }
+	ui.Column(c.Key(k("row"))).Gap(8).Padding(10, 12).Radius(10).Border(1, line).Children(func() {
+		ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
+			label := p.Label
+			lt := ui.TextInput(c.Key(k("label")), &label).Width(140).FontSize(13).TextColor(ink)
+			lt.Label("按钮文字").Placeholder("按钮文字")
+			if lt.Changed() {
+				edit(func(q *QAPreset) { q.Label = label })
+			}
+			ui.Spacer(c)
+			if toolButton(c, k("up"), "上移", i == 0).Clicked() {
+				a.settings.update(func(st *Settings) { st.QAPresets[i-1], st.QAPresets[i] = st.QAPresets[i], st.QAPresets[i-1] })
+			}
+			if toolButton(c, k("down"), "下移", i == n-1).Clicked() {
+				a.settings.update(func(st *Settings) { st.QAPresets[i], st.QAPresets[i+1] = st.QAPresets[i+1], st.QAPresets[i] })
+			}
+			del := ui.ButtonBase(c.Key(k("del"))).Padding(4, 10).Radius(6).Center().Border(1, line)
+			del.Children(func() { ui.Text(c, "删除").FontSize(12).TextColor(recRed) })
+			if del.Clicked() {
+				a.settings.update(func(st *Settings) {
+					if i < len(st.QAPresets) {
+						st.QAPresets = slices.Delete(st.QAPresets, i, i+1)
+					}
+				})
+			}
+		})
+		text := p.Text
+		ta := ui.TextArea(c.Key(k("text")), &text).Lines(1, 4).FontSize(13).TextColor(ink)
+		ta.Placeholder("填进输入框的问题")
+		if ta.Changed() {
+			edit(func(q *QAPreset) { q.Text = text })
+		}
+	})
 }

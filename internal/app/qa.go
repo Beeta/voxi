@@ -22,7 +22,7 @@ func (a *app) qaView(c *ui.Context, rec store.Recording) {
 			ui.Scroll(c.Key("qa-" + rec.ID)).Grow(1).Children(func() {
 				ui.Column(c).Padding(20, 32).Gap(12).Children(func() {
 					if len(rec.Chat) == 0 {
-						ui.Text(c, "就这段录音的内容提问，例如「帮我总结三个重点」。").FontSize(13).TextColor(muted)
+						a.qaEmpty(c, rec)
 					}
 					last := len(rec.Chat) - 1
 					for i := range rec.Chat {
@@ -239,20 +239,70 @@ func (a *app) archivedSession(c *ui.Context, rec store.Recording, sess store.Cha
 	})
 }
 
-// qaInput is the bottom input: a growing text box plus a send button.
+// qaInput is the bottom input: the preset chips, then a growing text box,
+// the model picker and the send button. Enter sends and Shift+Enter breaks
+// the line; ↑ in an empty box brings back the last question.
 func (a *app) qaInput(c *ui.Context, rec store.Recording, busy bool) {
 	hasTranscript := rec.Transcript != nil
+	canSend := func() bool {
+		return !busy && hasTranscript && strings.TrimSpace(a.draftQ[rec.ID]) != ""
+	}
+	send := func() {
+		a.ask(rec, a.draftQ[rec.ID])
+		a.draftQ[rec.ID] = ""
+	}
 	ui.Column(c).Children(func() {
 		ui.Column(c).Height(1).Background(line)
-		ui.Row(c).Padding(12, 32).Gap(10).AlignItems(ui.End).Children(func() {
+		// An empty conversation offers the presets as cards above (qaEmpty);
+		// chips here as well would say the same thing twice.
+		if len(rec.Chat) > 0 {
+			a.presetChips(c, rec)
+		}
+		ui.Row(c).Padding(10, 32, 12, 32).Gap(10).AlignItems(ui.End).Children(func() {
 			q := a.draftQ[rec.ID]
 			ta := ui.TextArea(c.Key("qa-input-"+rec.ID), &q).Lines(1, 4).Grow(1).FontSize(14).TextColor(ink)
-			ta.Placeholder("输入问题…")
+			ta.Label("问题").Placeholder("输入问题…  Enter 发送，Shift+Enter 换行，↑ 调出上一个问题")
+			// Keys come here before the text box sees them. While an input
+			// method composes, macOS keeps Enter for choosing the candidate
+			// and never delivers it, so this cannot send half a word.
+			ta.HandleInput(func(ev ui.InputEvent) bool {
+				if ev.Kind != ui.InputKeyDown || ev.Mods != 0 {
+					return false
+				}
+				switch ev.Key {
+				case ui.KeyEnter:
+					// Taken even when there is nothing to send, so a
+					// stray Enter never leaves a blank line behind.
+					if canSend() {
+						send()
+					}
+					return true
+				case ui.KeyUp:
+					if a.draftQ[rec.ID] != "" {
+						return false // ↑ moves the caret in the text
+					}
+					if last := lastQuestion(rec.Chat); last != "" {
+						a.draftQ[rec.ID] = last
+						a.qaCaretEnd = true
+						return true
+					}
+				}
+				return false
+			})
+			if a.qaFocusInput {
+				ta.Focus()
+				a.qaFocusInput = false
+			}
+			if a.qaCaretEnd {
+				n := len([]rune(a.draftQ[rec.ID]))
+				ta.SetTextSelection(n, n)
+				a.qaCaretEnd = false
+			}
 			if ta.Changed() {
 				a.draftQ[rec.ID] = q
 			}
 			a.quickModelSelect(c, "qa-model")
-			off := busy || !hasTranscript || strings.TrimSpace(a.draftQ[rec.ID]) == ""
+			off := !canSend()
 			b := ui.ButtonBase(c.Key("send")).Padding(10, 16).Radius(8).Center().Background(accent).Disabled(off)
 			if off {
 				b.Background(cardBg2)
@@ -265,8 +315,72 @@ func (a *app) qaInput(c *ui.Context, rec store.Recording, busy bool) {
 				ui.Text(c, "发送").FontSize(13).Bold().TextColor(fg)
 			})
 			if !off && b.Clicked() {
-				a.ask(rec, a.draftQ[rec.ID])
-				a.draftQ[rec.ID] = ""
+				send()
+			}
+		})
+	})
+}
+
+// presetChips is the row of saved questions over the input. A click puts
+// the question in the input, replacing what is there, with the caret at its
+// end, for it to be edited and sent. Past qaChipLimit the rest go in a 更多
+// menu.
+func (a *app) presetChips(c *ui.Context, rec store.Recording) {
+	presets := qaPresets(a.settings.snapshot())
+	if len(presets) == 0 {
+		return
+	}
+	use := func(p QAPreset) {
+		a.draftQ[rec.ID] = p.Text
+		a.qaFocusInput, a.qaCaretEnd = true, true
+	}
+	ui.Row(c.Key("qa-presets")).Padding(10, 32, 0, 32).Gap(6).AlignItems(ui.Center).Children(func() {
+		for i, p := range presets {
+			if i == qaChipLimit {
+				break
+			}
+			chip := ui.ButtonBase(c.Key(i)).Padding(4, 10).Radius(999).Border(1, line).Tooltip(p.Text)
+			chip.Background(controlFill(chip, cardBg2, cardBg3))
+			chip.Children(func() { ui.Text(c, p.Label).FontSize(12).TextColor(ink).SingleLine() })
+			if chip.Clicked() {
+				use(p)
+			}
+		}
+		if len(presets) > qaChipLimit {
+			ui.MenuButton(c.Key("qa-more"), "更多", func(m *ui.Menu) {
+				for _, p := range presets[qaChipLimit:] {
+					if m.Item(p.Label).Chosen() {
+						use(p)
+					}
+				}
+			}).FontSize(12)
+		}
+	})
+}
+
+// qaChipLimit is how many presets show as chips before the rest go in 更多.
+const qaChipLimit = 5
+
+// qaEmpty is what an empty conversation shows: a hint and, as a start, the
+// presets as larger cards with their full text.
+func (a *app) qaEmpty(c *ui.Context, rec store.Recording) {
+	presets := qaPresets(a.settings.snapshot())
+	ui.Column(c).Gap(12).Children(func() {
+		ui.Text(c, "就这段录音的内容提问，或从下面选一个开始（可在设置里修改这些预设）。").FontSize(13).TextColor(muted)
+		ui.Row(c).Wrap().Gap(8).Children(func() {
+			for i, p := range presets {
+				card := ui.ButtonBase(c.Key("qa-start-"+strconv.Itoa(i))).Padding(10, 14).Radius(10).Border(1, line).Width(260)
+				card.Background(controlFill(card, cardBg, cardBg2))
+				card.Children(func() {
+					ui.Column(c).Gap(4).Children(func() {
+						ui.Text(c, p.Label).FontSize(13).Bold().TextColor(ink)
+						ui.Text(c, p.Text).FontSize(12).TextColor(muted).MaxLines(2)
+					})
+				})
+				if card.Clicked() {
+					a.draftQ[rec.ID] = p.Text
+					a.qaFocusInput, a.qaCaretEnd = true, true
+				}
 			}
 		})
 	})

@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
-	"github.com/egoist/mygo"
 	"github.com/Beeta/voxi/internal/tunnel"
+	"github.com/egoist/mygo"
 )
 
 // Settings is the app's persisted configuration: which sources to capture,
@@ -30,6 +31,10 @@ type Settings struct {
 	LLMBaseURL string `json:"llmBaseURL"`
 	LLMKey     string `json:"llmKey"`
 	LLMModel   string `json:"llmModel"`
+	// QAPresets are the Q&A tab's saved questions. nil means the file
+	// predates them and gets defaultQAPresets; an empty list is the user's
+	// own choice of none.
+	QAPresets []QAPreset `json:"qaPresets"`
 	// Appearance is "light", "dark", or "system"; empty follows the system,
 	// which is also what a settings file written before this existed means.
 	Appearance string `json:"appearance"`
@@ -72,7 +77,7 @@ func openSettings() (*settingsStore, error) {
 	}
 	st := &settingsStore{
 		path: filepath.Join(dir, "settings.json"),
-		s:    &Settings{Mic: true, System: true, CloudflaredPath: tunnel.DefaultCloudflaredPath},
+		s:    &Settings{Mic: true, System: true, CloudflaredPath: tunnel.DefaultCloudflaredPath, QAPresets: slices.Clone(defaultQAPresets)},
 	}
 	data, err := os.ReadFile(st.path)
 	if err != nil {
@@ -84,8 +89,18 @@ func openSettings() (*settingsStore, error) {
 	if err := json.Unmarshal(data, st.s); err != nil {
 		return nil, err
 	}
-	migrateLLM(st.s)
+	upgradeSettings(st.s)
 	return st, nil
+}
+
+// upgradeSettings brings a settings file written by an older version up to
+// date: the single LLM endpoint becomes a provider, and a file from before
+// Q&A presets gets the built-in ones.
+func upgradeSettings(s *Settings) {
+	migrateLLM(s)
+	if s.QAPresets == nil {
+		s.QAPresets = slices.Clone(defaultQAPresets)
+	}
 }
 
 // snapshot returns a copy so the UI can render (and bind edits to locals)

@@ -33,6 +33,7 @@ func (a *app) settingsModal(c *ui.Context, windowH float32) {
 					a.recordSettings(c, s)
 					a.asrSettings(c, s)
 					a.llmSettings(c, s)
+					a.qaPresetSettings(c, s)
 				})
 			})
 			ui.Text(c, a.versionLabel()).FontSize(12).TextColor(muted)
