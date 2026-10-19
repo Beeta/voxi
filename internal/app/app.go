@@ -58,22 +58,32 @@ type app struct {
 	renameDraft     string            // speaker name being typed
 	confirmRetrans  bool              // re-transcribe confirmation open
 	showSettings    bool
+	settingsTab     int    // the settings page shown (settingsPages)
+	llmOpenProv     string // the provider expanded for editing in settings
 	confirmDel      bool
 	confirmDelAudio bool              // dropping the audio while keeping the text
 	delProviderID   string            // the LLM provider the delete confirmation is about
 	llmFilter       map[string]string // per-provider filter over its fetched models
+	llmShowFetched  map[string]bool   // per-provider: is its fetched model list unfolded
 	confirmDelProv  bool
 	// Q&A tab: the archived-conversations view, which of them is expanded,
 	// and the clear / delete-session confirmations.
-	qaHistory           bool
-	qaFocusInput        bool // focus the Q&A input in the next frame
-	qaCaretEnd          bool // put the caret at the end of the Q&A input then
-	confirmResetPresets bool // settings: replace the Q&A presets with the built-in ones
-	qaOpenSession       string
-	confirmClearChat    bool
-	confirmDelSession   bool
-	delSessionID        string
-	pickingDir          bool // a recordings-directory dialog is open
+	qaHistory    bool
+	qaFocusInput bool // focus the Q&A input in the next frame
+	qaCaretEnd   bool // put the caret at the end of the Q&A input then
+	// The Q&A preset editor: open on preset presetEditIdx (-1 for a new
+	// one), with its draft; and the delete confirmation.
+	presetEditOpen    bool
+	presetEditIdx     int
+	presetEditLabel   string
+	presetEditText    string
+	confirmDelPreset  bool
+	delPresetIdx      int
+	qaOpenSession     string
+	confirmClearChat  bool
+	confirmDelSession bool
+	delSessionID      string
+	pickingDir        bool // a recordings-directory dialog is open
 
 	// The recording row's context menu: which recording it is renaming or
 	// deleting, and the rename draft. A row can be right-clicked without
@@ -137,6 +147,9 @@ func newApp(st *store.Store, set *settingsStore, rec *audio.Recorder) *app {
 		editSeg:      -1,
 		setTheme:     mygo.Theme.SetSource,
 		trashItem:    mygo.Shell.TrashItem,
+
+		// per-provider fold state of the fetched model lists
+		llmShowFetched: map[string]bool{},
 	}
 	if recs := st.Snapshot(); len(recs) > 0 {
 		a.selected = recs[0].ID

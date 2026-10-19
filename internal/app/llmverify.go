@@ -87,6 +87,7 @@ func (a *app) fetchModels(id string) {
 			a.llmFetchErr[id] = "获取失败：" + err.Error()
 		} else {
 			a.llmFetched[id] = ids
+			a.llmShowFetched[id] = true // just asked for: show them
 		}
 		a.mu.Unlock()
 		a.ping()

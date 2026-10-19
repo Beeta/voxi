@@ -1,7 +1,7 @@
 package app
 
 import (
-	"slices"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -34,18 +34,27 @@ func (a *app) endpointHint(c *ui.Context, base string) {
 
 // llmSettings picks the model in use among the saved providers × models, and
 // edits the providers: add, edit, verify, delete.
+//
+// Each provider is one summary line until it is opened for editing, one at a
+// time, so the page stays short however many there are.
 func (a *app) llmSettings(c *ui.Context, s Settings) {
 	a.settingsSection(c, "大模型配置", func() {
 		a.llmPicker(c, s)
 		for _, p := range s.LLMProviders {
-			a.providerCard(c, p)
+			if p.ID == a.llmOpenProv {
+				a.providerCard(c, p)
+			} else {
+				a.providerRow(c, p)
+			}
 		}
 		add := ui.ButtonBase(c.Key("llm-add")).Padding(8, 16).Radius(8).Center().Background(cardBg2).Border(1, line)
 		add.Children(func() { ui.Text(c, "+ 添加供应商").FontSize(13).Bold().TextColor(ink) })
 		if add.Clicked() {
+			id := newProviderID()
 			a.settings.update(func(st *Settings) {
-				st.LLMProviders = append(st.LLMProviders, LLMProvider{ID: newProviderID(), Name: "新供应商"})
+				st.LLMProviders = append(st.LLMProviders, LLMProvider{ID: id, Name: "新供应商"})
 			})
+			a.llmOpenProv = id
 		}
 	})
 	name := ""
@@ -114,7 +123,60 @@ func (a *app) quickModelSelect(c *ui.Context, key string) {
 	})
 }
 
-// providerCard edits one saved provider in place.
+// providerRow is a provider folded to one line: its name, how many models
+// it has, the host it talks to and the last verification, with 编辑 to open
+// it. A click anywhere on the line opens it too.
+func (a *app) providerRow(c *ui.Context, p LLMProvider) {
+	a.mu.Lock()
+	var msg string
+	var ok bool
+	if a.llmVerifyID == p.ID {
+		msg, ok = a.llmVerifyMsg, a.llmVerifyOK
+	}
+	a.mu.Unlock()
+	name := strings.TrimSpace(p.Name)
+	if name == "" {
+		name = "未命名"
+	}
+	detail := strconv.Itoa(len(p.modelNames())) + " 个模型"
+	if h := baseHost(p.BaseURL); h != "" {
+		detail += " · " + h
+	} else {
+		detail += " · 未填 Base URL"
+	}
+	row := ui.ButtonBase(c.Key("llm-" + p.ID + "-row")).Padding(10, 12).Radius(10).Border(1, line).Label(name)
+	row.Background(controlFill(row, cardBg, cardBg2))
+	row.Children(func() {
+		ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
+			ui.Column(c).Gap(2).Grow(1).Children(func() {
+				ui.Text(c, name).FontSize(14).TextColor(ink).SingleLine()
+				ui.Text(c, detail).FontSize(12).TextColor(muted).SingleLine()
+			})
+			if msg != "" {
+				mark, col := "✕ 连接失败", recRed
+				if ok {
+					mark, col = "✓ 连接正常", okGreen
+				}
+				ui.Text(c, mark).FontSize(12).TextColor(col)
+			}
+			ui.Text(c, "编辑").FontSize(12).TextColor(accent)
+		})
+	})
+	if row.Clicked() {
+		a.llmOpenProv = p.ID
+	}
+}
+
+// baseHost is the host of a base URL, for the folded provider line.
+func baseHost(base string) string {
+	u, err := url.Parse(strings.TrimSpace(base))
+	if err != nil {
+		return ""
+	}
+	return u.Host
+}
+
+// providerCard edits one saved provider in place; 收起 folds it back.
 func (a *app) providerCard(c *ui.Context, p LLMProvider) {
 	a.mu.Lock()
 	verifying := a.verifyingLLM && a.llmVerifyID == p.ID
@@ -135,7 +197,13 @@ func (a *app) providerCard(c *ui.Context, p LLMProvider) {
 		})
 	}
 	k := func(s string) string { return "llm-" + id + "-" + s }
-	ui.Column(c.Key(k("card"))).Gap(10).Padding(12, 12).Radius(10).Border(1, line).Children(func() {
+	ui.Column(c.Key(k("card"))).Gap(10).Padding(12, 12).Radius(10).Border(1, accent).Children(func() {
+		ui.Row(c).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, "编辑供应商").FontSize(13).Bold().TextColor(muted).Grow(1)
+			if toolButton(c, k("fold"), "收起", false).Clicked() {
+				a.llmOpenProv = ""
+			}
+		})
 		a.fieldInput(c, k("name"), "名称", p.Name, func(v string) { edit(func(q *LLMProvider) { q.Name = v }) })
 		a.fieldInput(c, k("base"), "Base URL", p.BaseURL, func(v string) { edit(func(q *LLMProvider) { q.BaseURL = v }) })
 		a.endpointHint(c, p.BaseURL)
@@ -207,6 +275,21 @@ func (a *app) fetchedModels(c *ui.Context, p LLMProvider) {
 		return
 	}
 	k := func(s string) string { return "llm-" + p.ID + "-" + s }
+	// Folded to one line unless asked for: a fetched list can run to
+	// hundreds of models, and it is only wanted while picking.
+	open := a.llmShowFetched[p.ID]
+	head := ui.ButtonBase(c.Key(k("fetched-head"))).Children(func() {
+		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, triangle(open)).FontSize(12).TextColor(muted).Width(14)
+			ui.Text(c, "从接口选择（"+strconv.Itoa(len(ids))+" 个）").FontSize(12).TextColor(accent)
+		})
+	})
+	if head.Clicked() {
+		a.llmShowFetched[p.ID] = !open
+	}
+	if !open {
+		return
+	}
 	filter := a.llmFilter[p.ID]
 	ui.Column(c.Key(k("fetched"))).Gap(8).Children(func() {
 		f := filter
@@ -263,79 +346,4 @@ next:
 		out = append(out, id)
 	}
 	return out
-}
-
-// qaPresetSettings edits the Q&A tab's saved questions: a short label for
-// the chip and the text it puts in the input, reorderable, deletable, and
-// back to the built-in ones on request.
-func (a *app) qaPresetSettings(c *ui.Context, s Settings) {
-	a.settingsSection(c, "问答预设", func() {
-		ui.Text(c, "问答页输入框上方的快捷问题：点一下填进输入框，可修改后再发送。").FontSize(12).TextColor(muted)
-		n := len(s.QAPresets)
-		for i, p := range s.QAPresets {
-			a.presetRow(c, i, n, p)
-		}
-		ui.Row(c).Gap(10).Children(func() {
-			add := ui.ButtonBase(c.Key("qa-preset-add")).Padding(8, 16).Radius(8).Center().Background(cardBg2).Border(1, line)
-			add.Children(func() { ui.Text(c, "+ 添加预设").FontSize(13).Bold().TextColor(ink) })
-			if add.Clicked() {
-				a.settings.update(func(st *Settings) { st.QAPresets = append(st.QAPresets, QAPreset{}) })
-			}
-			reset := ui.ButtonBase(c.Key("qa-preset-reset")).Padding(8, 16).Radius(8).Center().Border(1, line)
-			reset.Children(func() { ui.Text(c, "恢复默认").FontSize(13).TextColor(muted) })
-			if reset.Clicked() {
-				a.confirmResetPresets = true
-			}
-		})
-	})
-	if i := ui.AlertDialog(c.Key("qa-preset-resetq"), &a.confirmResetPresets, "恢复默认预设？",
-		"将用内置的几条预设替换当前全部预设。", "恢复默认", "取消"); i == 0 {
-		a.settings.update(func(st *Settings) { st.QAPresets = slices.Clone(defaultQAPresets) })
-	}
-}
-
-// presetRow edits preset i of n in place.
-func (a *app) presetRow(c *ui.Context, i, n int, p QAPreset) {
-	edit := func(fn func(*QAPreset)) {
-		a.settings.update(func(st *Settings) {
-			if i < len(st.QAPresets) {
-				fn(&st.QAPresets[i])
-			}
-		})
-	}
-	// Keyed by position: rows are only ever moved or removed by the buttons
-	// here, which rebuild every row below them in the same frame.
-	k := func(s string) string { return "qa-preset-" + strconv.Itoa(i) + "-" + s }
-	ui.Column(c.Key(k("row"))).Gap(8).Padding(10, 12).Radius(10).Border(1, line).Children(func() {
-		ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
-			label := p.Label
-			lt := ui.TextInput(c.Key(k("label")), &label).Width(140).FontSize(13).TextColor(ink)
-			lt.Label("按钮文字").Placeholder("按钮文字")
-			if lt.Changed() {
-				edit(func(q *QAPreset) { q.Label = label })
-			}
-			ui.Spacer(c)
-			if toolButton(c, k("up"), "上移", i == 0).Clicked() {
-				a.settings.update(func(st *Settings) { st.QAPresets[i-1], st.QAPresets[i] = st.QAPresets[i], st.QAPresets[i-1] })
-			}
-			if toolButton(c, k("down"), "下移", i == n-1).Clicked() {
-				a.settings.update(func(st *Settings) { st.QAPresets[i], st.QAPresets[i+1] = st.QAPresets[i+1], st.QAPresets[i] })
-			}
-			del := ui.ButtonBase(c.Key(k("del"))).Padding(4, 10).Radius(6).Center().Border(1, line)
-			del.Children(func() { ui.Text(c, "删除").FontSize(12).TextColor(recRed) })
-			if del.Clicked() {
-				a.settings.update(func(st *Settings) {
-					if i < len(st.QAPresets) {
-						st.QAPresets = slices.Delete(st.QAPresets, i, i+1)
-					}
-				})
-			}
-		})
-		text := p.Text
-		ta := ui.TextArea(c.Key(k("text")), &text).Lines(1, 4).FontSize(13).TextColor(ink)
-		ta.Placeholder("填进输入框的问题")
-		if ta.Changed() {
-			edit(func(q *QAPreset) { q.Text = text })
-		}
-	})
 }

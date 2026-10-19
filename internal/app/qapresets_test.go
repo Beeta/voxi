@@ -32,15 +32,14 @@ func TestQAPresetsDefaultOnce(t *testing.T) {
 	}
 }
 
-// TestQAPresetsSkipEmpty: a preset still being written (no text) shows no
-// chip, and one without a label takes the start of its text.
-func TestQAPresetsSkipEmpty(t *testing.T) {
-	got := qaPresets(Settings{QAPresets: []QAPreset{
-		{Label: "空", Text: "  "},
-		{Text: "这是一个很长的问题文本"},
-	}})
-	if len(got) != 1 || got[0].Label != "这是一个很长的问…" {
-		t.Errorf("got %+v", got)
+// TestPresetLabel: a preset with no question is not usable, and one without
+// a label shows the start of its question.
+func TestPresetLabel(t *testing.T) {
+	if (QAPreset{Label: "空", Text: "  "}).usable() {
+		t.Error("a preset without a question is usable")
+	}
+	if got := (QAPreset{Text: "这是一个很长的问题文本"}).label(); got != "这是一个很长的问…" {
+		t.Errorf("label %q", got)
 	}
 }
 
@@ -139,40 +138,130 @@ func TestUpRecallsTheLastQuestion(t *testing.T) {
 	}
 }
 
-// TestPresetSettingsEdit drives the settings rows: delete the first, and
-// the one below must show its own text in its place, not the deleted one's.
-func TestPresetSettingsEdit(t *testing.T) {
-	a, set := newSettingsApp(t)
-	set.update(func(s *Settings) {
+// TestPresetRightClickEditAndDelete drives the chips' context menu on the
+// Q&A tab: 编辑 opens the dialog on that preset and 保存 writes the draft;
+// 取消 leaves it as it was; 删除 asks, then removes that one and no other.
+func TestPresetRightClickEditAndDelete(t *testing.T) {
+	a, tt, _ := qaInputApp(t, store.ChatMessage{Role: "user", Text: "旧"}, store.ChatMessage{Role: "assistant", Text: "答"})
+	a.settings.update(func(s *Settings) {
 		s.QAPresets = []QAPreset{{Label: "甲", Text: "甲的问题"}, {Label: "乙", Text: "乙的问题"}}
 	})
-	tt := ui.NewTester(func(c *ui.Context) { a.qaPresetSettings(c, set.snapshot()) }, 616, 900)
 	tt.Frame()
-	if err := tt.Click("删除"); err != nil {
+	if err := tt.RightClick("乙"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.ChooseMenuItem("编辑"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	tt.Frame()
-	if got := set.snapshot().QAPresets; len(got) != 1 || got[0].Label != "乙" {
-		t.Fatalf("after deleting the first: %+v", got)
-	}
-	// The row now at position 0 is 乙's: typing into its label must edit
-	// 乙, starting from 乙's text rather than what the deleted row held.
-	if err := tt.Click("按钮文字"); err != nil {
+	if err := tt.Click("预设问题"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Key(ui.Cmd, ui.KeyA)
-	tt.Key(ui.Cmd, ui.KeyRight)
-	tt.Type("2")
+	tt.Type("乙的新问题")
 	tt.Frame()
-	if got := set.snapshot().QAPresets[0].Label; got != "乙2" {
-		t.Errorf("typing into the remaining row made its label %q, want 乙2", got)
+	if got := a.settings.snapshot().QAPresets[1].Text; got != "乙的问题" {
+		t.Fatalf("the preset changed before 保存: %q", got)
 	}
-	if err := tt.Click("+ 添加预设"); err != nil {
+	if err := tt.Click("保存"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if n := len(set.snapshot().QAPresets); n != 2 {
-		t.Errorf("after 添加 there are %d presets", n)
+	if got := a.settings.snapshot().QAPresets; got[1].Text != "乙的新问题" || got[0].Text != "甲的问题" {
+		t.Fatalf("after 保存: %+v", got)
+	}
+
+	tt.RightClick("甲")
+	tt.ChooseMenuItem("编辑")
+	tt.Frame()
+	tt.Click("预设问题")
+	tt.Type("不要")
+	tt.Click("取消")
+	tt.Frame()
+	if got := a.settings.snapshot().QAPresets[0].Text; got != "甲的问题" {
+		t.Errorf("取消 still saved: %q", got)
+	}
+
+	if err := tt.RightClick("甲"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.ChooseMenuItem("删除"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if !tt.HasText("删除预设？") {
+		t.Fatal("删除 did not ask first")
+	}
+	if err := tt.Click("删除预设"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if got := a.settings.snapshot().QAPresets; len(got) != 1 || got[0].Label != "乙" {
+		t.Errorf("after deleting 甲: %+v", got)
+	}
+}
+
+// TestPresetAdd: + opens an empty editor, 保存 stays off until there is a
+// question, and the new preset shows as a chip.
+func TestPresetAdd(t *testing.T) {
+	a, tt, _ := qaInputApp(t, store.ChatMessage{Role: "user", Text: "旧"}, store.ChatMessage{Role: "assistant", Text: "答"})
+	if err := tt.Click("+"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	tt.Click("保存")
+	tt.Frame()
+	if n := len(a.settings.snapshot().QAPresets); n != 1 {
+		t.Fatalf("an empty preset was saved: %d presets", n)
+	}
+	tt.Click("按钮文字")
+	tt.Type("新的")
+	tt.Click("预设问题")
+	tt.Type("新的问题")
+	if err := tt.Click("保存"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if got := a.settings.snapshot().QAPresets; len(got) != 2 || got[1] != (QAPreset{Label: "新的", Text: "新的问题"}) {
+		t.Fatalf("after adding: %+v", got)
+	}
+	if !tt.HasText("新的") {
+		t.Error("the new preset has no chip")
+	}
+}
+
+// TestMorePresetsCanBeManaged: presets past the chip limit sit in 更多, and
+// each is still usable, editable and deletable from its submenu.
+func TestMorePresetsCanBeManaged(t *testing.T) {
+	a, tt, id := qaInputApp(t, store.ChatMessage{Role: "user", Text: "旧"}, store.ChatMessage{Role: "assistant", Text: "答"})
+	a.settings.update(func(s *Settings) {
+		s.QAPresets = nil
+		for _, l := range []string{"一", "二", "三", "四", "五", "六"} {
+			s.QAPresets = append(s.QAPresets, QAPreset{Label: l, Text: l + "的问题"})
+		}
+	})
+	tt.Frame()
+	if tt.HasText("六") {
+		t.Fatal("the sixth preset shows as a chip")
+	}
+	if err := tt.Click("更多"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.ChooseMenuItem("六", "使用"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if got := a.draftQ[id]; got != "六的问题" {
+		t.Errorf("使用 put %q in the input", got)
+	}
+	tt.Click("更多")
+	if err := tt.ChooseMenuItem("六", "删除"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	tt.Click("删除预设")
+	tt.Frame()
+	if n := len(a.settings.snapshot().QAPresets); n != 5 {
+		t.Errorf("after deleting 六 there are %d presets", n)
 	}
 }

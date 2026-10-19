@@ -1,6 +1,7 @@
 package app
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -33,6 +34,7 @@ func (a *app) qaView(c *ui.Context, rec store.Recording) {
 			a.qaInput(c, rec, busy)
 		}
 	})
+	a.presetDialogs(c)
 	if i := ui.AlertDialog(c.Key("qa-clear"), &a.confirmClearChat, "清空当前对话？",
 		"将删除当前对话的全部问答，不会进入历史会话，无法恢复。", "清空", "取消"); i == 0 {
 		a.lib.ClearChat(rec.ID)
@@ -323,64 +325,196 @@ func (a *app) qaInput(c *ui.Context, rec store.Recording, busy bool) {
 
 // presetChips is the row of saved questions over the input. A click puts
 // the question in the input, replacing what is there, with the caret at its
-// end, for it to be edited and sent. Past qaChipLimit the rest go in a 更多
-// menu.
+// end, for it to be edited and sent; a right click offers 编辑 and 删除.
+// The row ends with + to add one. Past qaChipLimit the rest go in a 更多
+// menu, each as a submenu of 使用, 编辑 and 删除, since a menu item takes no
+// right click.
 func (a *app) presetChips(c *ui.Context, rec store.Recording) {
-	presets := qaPresets(a.settings.snapshot())
-	if len(presets) == 0 {
-		return
-	}
-	use := func(p QAPreset) {
-		a.draftQ[rec.ID] = p.Text
-		a.qaFocusInput, a.qaCaretEnd = true, true
-	}
+	all := a.settings.snapshot().QAPresets
 	ui.Row(c.Key("qa-presets")).Padding(10, 32, 0, 32).Gap(6).AlignItems(ui.Center).Children(func() {
-		for i, p := range presets {
-			if i == qaChipLimit {
-				break
+		shown := 0
+		var more []int
+		for i, p := range all {
+			if !p.usable() {
+				continue
 			}
-			chip := ui.ButtonBase(c.Key(i)).Padding(4, 10).Radius(999).Border(1, line).Tooltip(p.Text)
+			if shown == qaChipLimit {
+				more = append(more, i)
+				continue
+			}
+			shown++
+			chip := ui.ButtonBase(c.Key("qa-chip-"+strconv.Itoa(i))).Padding(4, 10).Radius(999).Border(1, line).Tooltip(p.Text)
 			chip.Background(controlFill(chip, cardBg2, cardBg3))
-			chip.Children(func() { ui.Text(c, p.Label).FontSize(12).TextColor(ink).SingleLine() })
+			chip.Children(func() { ui.Text(c, p.label()).FontSize(12).TextColor(ink).SingleLine() })
 			if chip.Clicked() {
-				use(p)
+				a.usePreset(rec.ID, p)
 			}
+			a.presetMenu(chip, i)
 		}
-		if len(presets) > qaChipLimit {
+		if len(more) > 0 {
 			ui.MenuButton(c.Key("qa-more"), "更多", func(m *ui.Menu) {
-				for _, p := range presets[qaChipLimit:] {
-					if m.Item(p.Label).Chosen() {
-						use(p)
-					}
+				for _, i := range more {
+					m.Submenu(all[i].label(), func(sm *ui.Menu) {
+						if sm.Item("使用").Chosen() {
+							a.usePreset(rec.ID, all[i])
+						}
+						if sm.Item("编辑").Chosen() {
+							a.openPresetEditor(i)
+						}
+						if sm.Item("删除").Chosen() {
+							a.delPresetIdx, a.confirmDelPreset = i, true
+						}
+					})
 				}
 			}).FontSize(12)
 		}
+		add := toolButton(c, "qa-preset-add", "+", false).Tooltip("添加预设问题")
+		if add.Clicked() {
+			a.openPresetEditor(-1)
+		}
 	})
+}
+
+// presetMenu gives preset chip i its right-click menu.
+func (a *app) presetMenu(chip ui.Element, i int) {
+	chip.ContextMenu(func(m *ui.Menu) {
+		if m.Item("编辑").Chosen() {
+			a.openPresetEditor(i)
+		}
+		if m.Item("删除").Chosen() {
+			a.delPresetIdx, a.confirmDelPreset = i, true
+		}
+	})
+}
+
+// usePreset puts p in rec's input, focused with the caret at the end.
+func (a *app) usePreset(recID string, p QAPreset) {
+	a.draftQ[recID] = p.Text
+	a.qaFocusInput, a.qaCaretEnd = true, true
 }
 
 // qaChipLimit is how many presets show as chips before the rest go in 更多.
 const qaChipLimit = 5
 
+// openPresetEditor opens the preset dialog on preset i, or on a new one
+// when i is -1.
+func (a *app) openPresetEditor(i int) {
+	a.presetEditIdx = i
+	a.presetEditLabel, a.presetEditText = "", ""
+	if all := a.settings.snapshot().QAPresets; i >= 0 && i < len(all) {
+		a.presetEditLabel, a.presetEditText = all[i].Label, all[i].Text
+	}
+	a.presetEditOpen = true
+}
+
+// presetDialogs draws the preset editor and the delete confirmation. The
+// editor works on a draft and saves on 保存, so a half-typed preset never
+// shows up as a chip, and 取消 really leaves the preset as it was.
+func (a *app) presetDialogs(c *ui.Context) {
+	if a.presetEditOpen {
+		title := "编辑预设"
+		if a.presetEditIdx < 0 {
+			title = "添加预设"
+		}
+		ui.Modal(c.Key("qa-preset-edit"), &a.presetEditOpen, func() {
+			ui.Column(c).Width(440).Gap(12).Children(func() {
+				ui.Text(c, title).FontSize(16).Bold().TextColor(ink)
+				ui.Text(c, "按钮文字").FontSize(12).TextColor(muted)
+				lt := ui.TextInput(c.Key("qa-preset-label"), &a.presetEditLabel).FontSize(13).TextColor(ink)
+				lt.Label("按钮文字").Placeholder("留空则取问题开头")
+				lt.Changed()
+				ui.Text(c, "问题").FontSize(12).TextColor(muted)
+				ta := ui.TextArea(c.Key("qa-preset-text"), &a.presetEditText).Lines(3, 8).FontSize(13).TextColor(ink)
+				ta.Label("预设问题").Placeholder("点这个预设时填进输入框的问题")
+				ta.Changed()
+				ui.Row(c).Gap(8).Children(func() {
+					ui.Spacer(c)
+					if toolButton(c, "qa-preset-cancel", "取消", false).Clicked() {
+						a.presetEditOpen = false
+					}
+					empty := strings.TrimSpace(a.presetEditText) == ""
+					save := ui.ButtonBase(c.Key("qa-preset-save")).Padding(6, 16).Radius(8).Center().Background(accent).Disabled(empty)
+					if empty {
+						save.Background(cardBg2)
+					}
+					save.Children(func() {
+						fg := onAccent
+						if empty {
+							fg = muted
+						}
+						ui.Text(c, "保存").FontSize(13).Bold().TextColor(fg)
+					})
+					if !empty && save.Clicked() {
+						a.savePreset()
+						a.presetEditOpen = false
+					}
+				})
+			})
+		})
+	}
+	if i := ui.AlertDialog(c.Key("qa-preset-delq"), &a.confirmDelPreset, "删除预设？",
+		"「"+a.presetLabelAt(a.delPresetIdx)+"」将从预设里删除。", "删除预设", "取消"); i == 0 {
+		idx := a.delPresetIdx
+		a.settings.update(func(st *Settings) {
+			if idx >= 0 && idx < len(st.QAPresets) {
+				st.QAPresets = slices.Delete(st.QAPresets, idx, idx+1)
+			}
+		})
+	}
+}
+
+// savePreset writes the editor's draft back: over the preset it opened on,
+// or as a new one at the end.
+func (a *app) savePreset() {
+	p := QAPreset{Label: strings.TrimSpace(a.presetEditLabel), Text: strings.TrimSpace(a.presetEditText)}
+	idx := a.presetEditIdx
+	a.settings.update(func(st *Settings) {
+		if idx >= 0 && idx < len(st.QAPresets) {
+			st.QAPresets[idx] = p
+		} else {
+			st.QAPresets = append(st.QAPresets, p)
+		}
+	})
+}
+
+// presetLabelAt is preset i's chip label, for the delete confirmation.
+func (a *app) presetLabelAt(i int) string {
+	if all := a.settings.snapshot().QAPresets; i >= 0 && i < len(all) {
+		return all[i].label()
+	}
+	return ""
+}
+
 // qaEmpty is what an empty conversation shows: a hint and, as a start, the
-// presets as larger cards with their full text.
+// presets as larger cards with their full text. They take the same right
+// click as the chips, and a last card adds one.
 func (a *app) qaEmpty(c *ui.Context, rec store.Recording) {
-	presets := qaPresets(a.settings.snapshot())
+	all := a.settings.snapshot().QAPresets
 	ui.Column(c).Gap(12).Children(func() {
-		ui.Text(c, "就这段录音的内容提问，或从下面选一个开始（可在设置里修改这些预设）。").FontSize(13).TextColor(muted)
+		ui.Text(c, "就这段录音的内容提问，或从下面选一个开始（右键预设可编辑、删除）。").FontSize(13).TextColor(muted)
 		ui.Row(c).Wrap().Gap(8).Children(func() {
-			for i, p := range presets {
+			for i, p := range all {
+				if !p.usable() {
+					continue
+				}
 				card := ui.ButtonBase(c.Key("qa-start-"+strconv.Itoa(i))).Padding(10, 14).Radius(10).Border(1, line).Width(260)
 				card.Background(controlFill(card, cardBg, cardBg2))
 				card.Children(func() {
 					ui.Column(c).Gap(4).Children(func() {
-						ui.Text(c, p.Label).FontSize(13).Bold().TextColor(ink)
+						ui.Text(c, p.label()).FontSize(13).Bold().TextColor(ink)
 						ui.Text(c, p.Text).FontSize(12).TextColor(muted).MaxLines(2)
 					})
 				})
 				if card.Clicked() {
-					a.draftQ[rec.ID] = p.Text
-					a.qaFocusInput, a.qaCaretEnd = true, true
+					a.usePreset(rec.ID, p)
 				}
+				a.presetMenu(card, i)
+			}
+			add := ui.ButtonBase(c.Key("qa-start-add")).Padding(10, 14).Radius(10).Border(1, line).Width(260).Center()
+			add.Background(controlFill(add, cardBg, cardBg2))
+			add.Children(func() { ui.Text(c, "+ 添加预设").FontSize(13).TextColor(muted) })
+			if add.Clicked() {
+				a.openPresetEditor(-1)
 			}
 		})
 	})

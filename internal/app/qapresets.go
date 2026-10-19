@@ -23,20 +23,16 @@ var defaultQAPresets = []QAPreset{
 	{Label: "各方观点", Text: "按说话人分别整理各自的主要观点。"},
 }
 
-// qaPresets is s's presets with the empty ones left out: a preset is kept
-// while being edited, but one with no text has nothing to put in the input.
-func qaPresets(s Settings) []QAPreset {
-	var out []QAPreset
-	for _, p := range s.QAPresets {
-		if strings.TrimSpace(p.Text) == "" {
-			continue
-		}
-		if strings.TrimSpace(p.Label) == "" {
-			p.Label = cutRunes(strings.TrimSpace(p.Text), 8)
-		}
-		out = append(out, p)
+// usable reports whether the preset has a question to put in the input.
+func (p QAPreset) usable() bool { return strings.TrimSpace(p.Text) != "" }
+
+// label is what the preset's chip shows: its label, or the start of its
+// question when it has none.
+func (p QAPreset) label() string {
+	if l := strings.TrimSpace(p.Label); l != "" {
+		return l
 	}
-	return out
+	return cutRunes(strings.TrimSpace(p.Text), 8)
 }
 
 // cutRunes is s cut to n runes, with an ellipsis when it was longer.

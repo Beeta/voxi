@@ -154,6 +154,20 @@ func TestAddAndDeleteProvider(t *testing.T) {
 	if n := len(set.snapshot().LLMProviders); n != 1 {
 		t.Fatalf("after 添加 there are %d providers", n)
 	}
+	if !tt.HasText("API Key") {
+		t.Fatal("a new provider is not opened for editing")
+	}
+	if err := tt.Click("收起"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if tt.HasText("API Key") {
+		t.Fatal("收起 left the provider open")
+	}
+	if err := tt.Click("新供应商"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
 	if err := tt.Click("删除"); err != nil {
 		t.Fatal(err)
 	}
@@ -178,6 +192,7 @@ func TestFetchedModelsToggle(t *testing.T) {
 	set.update(func(s *Settings) {
 		s.LLMProviders = []LLMProvider{{ID: "a", Name: "甲", BaseURL: srv.URL, Key: "k", Models: []string{"alpha"}}}
 	})
+	a.llmOpenProv = "a"
 	tt := ui.NewTester(func(c *ui.Context) { a.llmSettings(c, set.snapshot()) }, 616, 1200)
 	if err := tt.Click("获取模型列表"); err != nil {
 		t.Fatal(err)
@@ -240,5 +255,33 @@ func TestQuickModelSelect(t *testing.T) {
 	tt.Frame()
 	if got := set.snapshot().LLMActive; got != (LLMChoice{Provider: "a", Model: "m2"}) {
 		t.Errorf("picking in the tab saved %+v", got)
+	}
+}
+
+// TestProvidersFoldToOneLine: only the provider being edited shows its
+// fields; the others are one line each, and a click on one opens it in
+// place of the other.
+func TestProvidersFoldToOneLine(t *testing.T) {
+	a, set := newSettingsApp(t)
+	set.update(func(s *Settings) {
+		s.LLMProviders = []LLMProvider{
+			{ID: "a", Name: "甲", BaseURL: "https://api.a.com/v1", Key: "ka", Models: []string{"m1", "m2"}},
+			{ID: "b", Name: "乙", BaseURL: "https://b.example", Key: "kb", Models: []string{"n"}},
+		}
+	})
+	tt := ui.NewTester(func(c *ui.Context) { a.llmSettings(c, set.snapshot()) }, 616, 900)
+	tt.Frame()
+	if tt.HasText("API Key") {
+		t.Fatal("a provider is open before any was asked for")
+	}
+	if !tt.HasText("2 个模型 · api.a.com") || !tt.HasText("1 个模型 · b.example") {
+		t.Fatalf("the folded lines show %q", tt.Texts())
+	}
+	if err := tt.Click("乙"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.llmOpenProv != "b" || !tt.HasText("API Key") || !tt.HasText("2 个模型 · api.a.com") {
+		t.Errorf("clicking 乙 opened %q; shown %q", a.llmOpenProv, tt.Texts())
 	}
 }

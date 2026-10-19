@@ -110,3 +110,26 @@ func TestSettingsBodyFitsTheWindow(t *testing.T) {
 		}
 	}
 }
+
+// TestSettingsPages: the dialog shows one page at a time, switched by the
+// tabs over it, and the Q&A presets are not among them (they live on the
+// Q&A tab).
+func TestSettingsPages(t *testing.T) {
+	a, _ := newSettingsApp(t)
+	a.showSettings = true
+	tt := ui.NewTester(func(c *ui.Context) { a.settingsModal(c, 704) }, 968, 704)
+	tt.Frame()
+	if !tt.HasText("主题") || tt.HasText("大模型配置") {
+		t.Fatalf("the first page shows %q", tt.Texts())
+	}
+	if err := tt.Click("大模型"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if !tt.HasText("大模型配置") || tt.HasText("主题") {
+		t.Errorf("after 大模型 the dialog shows %q", tt.Texts())
+	}
+	if tt.HasText("问答预设") {
+		t.Error("the presets are still in settings")
+	}
+}

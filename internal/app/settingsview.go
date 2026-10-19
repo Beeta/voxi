@@ -6,7 +6,8 @@ import (
 )
 
 // settingsModal renders the settings dialog over the window while
-// a.showSettings is true: capture sources, the ASR key, and LLM providers.
+// a.showSettings is true, one page at a time: appearance and capture, the
+// ASR key, and the LLM providers.
 // windowH is the window's content height, which the dialog sizes its body
 // against; 0 means the window has not been measured yet.
 func (a *app) settingsModal(c *ui.Context, windowH float32) {
@@ -27,19 +28,31 @@ func (a *app) settingsModal(c *ui.Context, windowH float32) {
 					a.showSettings = false
 				}
 			})
-			ui.Scroll(c.Key("set-scroll")).MaxHeight(body).Label("设置内容").Children(func() {
+			// The pages stay above the scrolling body, so switching is always
+			// at hand however far a page is scrolled.
+			ui.Tabs(c.Key("set-tabs"), &a.settingsTab, settingsPages...).Changed()
+			ui.Scroll(c.Key("set-scroll-"+settingsPages[a.settingsTab])).MaxHeight(body).Label("设置内容").Children(func() {
 				ui.Column(c).Gap(24).Padding(0, 2).Children(func() {
-					a.appearanceSettings(c, s)
-					a.recordSettings(c, s)
-					a.asrSettings(c, s)
-					a.llmSettings(c, s)
-					a.qaPresetSettings(c, s)
+					switch a.settingsTab {
+					case 0:
+						a.appearanceSettings(c, s)
+						a.recordSettings(c, s)
+					case 1:
+						a.asrSettings(c, s)
+					case 2:
+						a.llmSettings(c, s)
+					}
 				})
 			})
 			ui.Text(c, a.versionLabel()).FontSize(12).TextColor(muted)
 		})
 	})
 }
+
+// settingsPages are the settings dialog's pages, in tab order. The Q&A
+// presets are not among them: they are managed where they are used, on the
+// Q&A tab.
+var settingsPages = []string{"通用", "语音识别", "大模型"}
 
 // versionLabel is what the dialog's footer shows: the version the app was
 // packaged with, or dev when it carries none (a plain `go run`), so a
