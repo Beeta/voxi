@@ -50,10 +50,57 @@ type Mindmap struct {
 	Stale bool      `json:"stale,omitempty"`
 }
 
-// ChatMessage is one turn of the transcript Q&A. Role is "user" or "assistant".
+// ChatMessage is one turn of the transcript Q&A. Role is "user" or
+// "assistant", or ChatDivider for a 新话题 line: the turns before the last
+// divider stay on screen but are no longer sent to the model.
 type ChatMessage struct {
 	Role string `json:"role"`
 	Text string `json:"text"`
+	// Error marks an answer that is an error message rather than the
+	// model's reply; it and its question are kept out of the context.
+	Error bool `json:"error,omitempty"`
+}
+
+// ChatDivider is the Role of a 新话题 line.
+const ChatDivider = "divider"
+
+// ChatContext is what of chat the model is sent as history: the turns after
+// the last divider, without unanswered questions and failed answers (an
+// error message is not something the model said).
+func ChatContext(chat []ChatMessage) []ChatMessage {
+	start := 0
+	for i, m := range chat {
+		if m.Role == ChatDivider {
+			start = i + 1
+		}
+	}
+	var out []ChatMessage
+	for i := start; i < len(chat); i++ {
+		m := chat[i]
+		if m.Role != "user" {
+			continue
+		}
+		if i+1 < len(chat) && chat[i+1].Role == "assistant" && !failedAnswer(chat[i+1]) {
+			out = append(out, m, chat[i+1])
+		}
+	}
+	return out
+}
+
+// failedAnswer is an answer not worth sending back: empty, or an error.
+// Answers from before ChatMessage.Error existed are recognised by the
+// prefix the app wrote them with.
+func failedAnswer(m ChatMessage) bool {
+	t := strings.TrimSpace(m.Text)
+	return m.Error || t == "" || strings.HasPrefix(t, "出错了：")
+}
+
+// ChatSession is an archived Q&A conversation.
+type ChatSession struct {
+	ID       string        `json:"id"`
+	Title    string        `json:"title"` // the first question, cut short
+	Archived time.Time     `json:"archived"`
+	Messages []ChatMessage `json:"messages"`
 }
 
 // Recording is one captured file and what the library knows about it.
@@ -74,6 +121,7 @@ type Recording struct {
 	SummaryPrompt string        `json:"summaryPrompt,omitempty"` // editable instruction; empty = default
 	Mindmap       *Mindmap      `json:"mindmap,omitempty"`
 	Chat          []ChatMessage `json:"chat,omitempty"`
+	ChatArchive   []ChatSession `json:"chatArchive,omitempty"` // newest first
 	Notes         string        `json:"notes,omitempty"`
 }
 
@@ -512,15 +560,6 @@ func (s *Store) StreamLastAssistant(id, text string) {
 	}
 }
 
-// commitChat persists the chat after a streamed answer completes.
-func (s *Store) CommitChat(id string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.find(id) != nil {
-		s.saveLocked()
-	}
-}
-
 // clearChat drops the Q&A history for a recording.
 func (s *Store) ClearChat(id string) {
 	s.mu.Lock()
@@ -529,6 +568,185 @@ func (s *Store) ClearChat(id string) {
 		r.Chat = nil
 		s.saveLocked()
 	}
+}
+
+// FinishLastAssistant sets the last answer's final text and persists the
+// chat; failed marks it as an error, which keeps the turn out of the context.
+func (s *Store) FinishLastAssistant(id, text string, failed bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r := s.find(id)
+	if r == nil {
+		return
+	}
+	for i := len(r.Chat) - 1; i >= 0; i-- {
+		if r.Chat[i].Role == "assistant" {
+			r.Chat[i].Text, r.Chat[i].Error = text, failed
+			break
+		}
+	}
+	s.saveLocked()
+}
+
+// NewChatTopic appends a 新话题 divider, unless the chat is empty or already
+// ends with one.
+func (s *Store) NewChatTopic(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r := s.find(id)
+	if r == nil || len(r.Chat) == 0 || r.Chat[len(r.Chat)-1].Role == ChatDivider {
+		return
+	}
+	r.Chat = append(r.Chat, ChatMessage{Role: ChatDivider})
+	s.saveLocked()
+}
+
+// DeleteChat removes the message at i. A question goes with the answer
+// right after it, and an answer with the question right before it, so the
+// chat never holds half a turn; a divider goes alone. Dividers left at the
+// start, at the end or next to each other are dropped too.
+func (s *Store) DeleteChat(id string, i int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r := s.find(id)
+	if r == nil || i < 0 || i >= len(r.Chat) {
+		return
+	}
+	from, to := i, i+1
+	switch r.Chat[i].Role {
+	case "user":
+		if to < len(r.Chat) && r.Chat[to].Role == "assistant" {
+			to++
+		}
+	case "assistant":
+		if from > 0 && r.Chat[from-1].Role == "user" {
+			from--
+		}
+	}
+	r.Chat = tidyDividers(append(r.Chat[:from:from], r.Chat[to:]...))
+	s.saveLocked()
+}
+
+// tidyDividers drops dividers that separate nothing.
+func tidyDividers(chat []ChatMessage) []ChatMessage {
+	var out []ChatMessage
+	for _, m := range chat {
+		if m.Role == ChatDivider && (len(out) == 0 || out[len(out)-1].Role == ChatDivider) {
+			continue
+		}
+		out = append(out, m)
+	}
+	if n := len(out); n > 0 && out[n-1].Role == ChatDivider {
+		out = out[:n-1]
+	}
+	return out
+}
+
+// ArchiveChat moves the current conversation into the archive, leaving an
+// empty one. It does nothing when there is nothing to keep.
+func (s *Store) ArchiveChat(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if r := s.find(id); r != nil && archiveLocked(r) {
+		s.saveLocked()
+	}
+}
+
+func archiveLocked(r *Recording) bool {
+	chat := tidyDividers(r.Chat)
+	if len(chat) == 0 {
+		r.Chat = nil
+		return false
+	}
+	title := "对话"
+	for _, m := range chat {
+		if m.Role == "user" && strings.TrimSpace(m.Text) != "" {
+			title = cutTitle(m.Text, 30)
+			break
+		}
+	}
+	sess := ChatSession{
+		ID:       fmt.Sprintf("chat-%d", time.Now().UnixNano()),
+		Title:    title,
+		Archived: time.Now(),
+		Messages: chat,
+	}
+	r.ChatArchive = append([]ChatSession{sess}, r.ChatArchive...)
+	r.Chat = nil
+	return true
+}
+
+// cutTitle is the first line of s, at most n runes.
+func cutTitle(s string, n int) string {
+	s = strings.TrimSpace(s)
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		s = strings.TrimSpace(s[:i])
+	}
+	if r := []rune(s); len(r) > n {
+		return string(r[:n]) + "…"
+	}
+	return s
+}
+
+// RestoreChat makes an archived conversation the current one again. The
+// current one, if it holds anything, is archived in its place so nothing is
+// lost by switching.
+func (s *Store) RestoreChat(id, sessionID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r := s.find(id)
+	if r == nil {
+		return
+	}
+	i := sessionIndex(r, sessionID)
+	if i < 0 {
+		return
+	}
+	sess := r.ChatArchive[i]
+	r.ChatArchive = append(r.ChatArchive[:i:i], r.ChatArchive[i+1:]...)
+	archiveLocked(r)
+	r.Chat = sess.Messages
+	s.saveLocked()
+}
+
+// DeleteChatSession drops an archived conversation.
+func (s *Store) DeleteChatSession(id, sessionID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r := s.find(id)
+	if r == nil {
+		return
+	}
+	if i := sessionIndex(r, sessionID); i >= 0 {
+		r.ChatArchive = append(r.ChatArchive[:i:i], r.ChatArchive[i+1:]...)
+		s.saveLocked()
+	}
+}
+
+func sessionIndex(r *Recording, sessionID string) int {
+	for i, sess := range r.ChatArchive {
+		if sess.ID == sessionID {
+			return i
+		}
+	}
+	return -1
+}
+
+// ResetLastAnswer empties the last answer for it to be generated again,
+// in memory only: the stream that follows persists it when it finishes.
+func (s *Store) ResetLastAnswer(id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r := s.find(id)
+	n := 0
+	if r != nil {
+		n = len(r.Chat)
+	}
+	if n < 2 || r.Chat[n-1].Role != "assistant" || r.Chat[n-2].Role != "user" {
+		return false
+	}
+	r.Chat[n-1] = ChatMessage{Role: "assistant"}
+	return true
 }
 
 // saveLocked writes the index atomically (tmp + rename). The caller holds mu.

@@ -6,6 +6,7 @@
 package app
 
 import (
+	"context"
 	"sync"
 
 	"github.com/Beeta/voxi/internal/audio"
@@ -32,6 +33,7 @@ type app struct {
 	summarizing  map[string]bool
 	mindmapping  map[string]bool
 	asking       map[string]bool
+	askCancel    map[string]context.CancelFunc // stops the answer streaming for a recording
 	status       string
 	verifyingLLM bool   // a verification of llmVerifyID is under way
 	llmVerifyID  string // the provider the message below is about
@@ -57,11 +59,18 @@ type app struct {
 	confirmRetrans  bool              // re-transcribe confirmation open
 	showSettings    bool
 	confirmDel      bool
-	confirmDelAudio bool // dropping the audio while keeping the text
-	delProviderID   string // the LLM provider the delete confirmation is about
+	confirmDelAudio bool              // dropping the audio while keeping the text
+	delProviderID   string            // the LLM provider the delete confirmation is about
 	llmFilter       map[string]string // per-provider filter over its fetched models
 	confirmDelProv  bool
-	pickingDir      bool // a recordings-directory dialog is open
+	// Q&A tab: the archived-conversations view, which of them is expanded,
+	// and the clear / delete-session confirmations.
+	qaHistory         bool
+	qaOpenSession     string
+	confirmClearChat  bool
+	confirmDelSession bool
+	delSessionID      string
+	pickingDir        bool // a recordings-directory dialog is open
 
 	// The recording row's context menu: which recording it is renaming or
 	// deleting, and the rename draft. A row can be right-clicked without
@@ -112,6 +121,7 @@ func newApp(st *store.Store, set *settingsStore, rec *audio.Recorder) *app {
 		summarizing:  map[string]bool{},
 		mindmapping:  map[string]bool{},
 		asking:       map[string]bool{},
+		askCancel:    map[string]context.CancelFunc{},
 		llmFetching:  map[string]bool{},
 		llmFetched:   map[string][]string{},
 		llmFetchErr:  map[string]string{},

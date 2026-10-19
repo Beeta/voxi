@@ -3,6 +3,7 @@ package llm
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -76,14 +77,17 @@ func (c Client) post(body []byte) ([]byte, error) {
 }
 
 // Ask streams an answer about the transcript, calling emit for each chunk.
-func (c Client) Ask(transcript string, history []store.ChatMessage, question string, emit func(string)) (string, error) {
+// history is sent as given (see store.ChatContext for what to pass).
+// Cancelling ctx stops the request; what has streamed so far is returned with
+// ctx's error.
+func (c Client) Ask(ctx context.Context, transcript string, history []store.ChatMessage, question string, emit func(string)) (string, error) {
 	msgs := []chatMessage{{Role: "system", Content: "你是会议记录助手，依据给定的转写内容回答问题；无法从内容得知时如实说明。\n\n转写内容：\n" + transcript}}
 	for _, m := range history {
 		msgs = append(msgs, chatMessage{Role: m.Role, Content: m.Text})
 	}
 	msgs = append(msgs, chatMessage{Role: "user", Content: question})
 	body, _ := json.Marshal(map[string]any{"model": c.model, "messages": msgs, "stream": true})
-	req, err := http.NewRequest(http.MethodPost, Endpoint(c.baseURL), bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, Endpoint(c.baseURL), bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
@@ -124,6 +128,9 @@ func (c Client) Ask(transcript string, history []store.ChatMessage, question str
 			full.WriteString(d)
 			emit(d)
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		return full.String(), err
 	}
 	return full.String(), sc.Err()
 }

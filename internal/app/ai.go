@@ -1,6 +1,8 @@
 package app
 
 import (
+	"context"
+	"errors"
 	"strings"
 
 	"github.com/Beeta/voxi/internal/llm"
@@ -119,43 +121,114 @@ func (a *app) generateMindmap(rec store.Recording) {
 	}()
 }
 
-// ask appends the question, then streams the model's answer into the chat.
+// ask sends question about rec to the model and streams the answer into a
+// new turn. The history sent is the current topic only (store.ChatContext).
 func (a *app) ask(rec store.Recording, question string) {
 	question = strings.TrimSpace(question)
 	if question == "" {
 		return
 	}
-	client, ok := a.llm()
-	if !ok {
-		a.setStatus("请先在设置里配置大模型")
+	history := store.ChatContext(rec.Chat)
+	if !a.startAnswer(rec.ID, func() bool {
+		a.lib.AppendChat(rec.ID, store.ChatMessage{Role: "user", Text: question})
+		a.lib.AppendChat(rec.ID, store.ChatMessage{Role: "assistant"})
+		return true
+	}) {
 		return
+	}
+	a.streamAnswer(rec, history, question)
+}
+
+// regenerate answers the last question again, in place of its answer.
+func (a *app) regenerate(rec store.Recording) {
+	n := len(rec.Chat)
+	if n < 2 || rec.Chat[n-1].Role != "assistant" || rec.Chat[n-2].Role != "user" {
+		return
+	}
+	question := rec.Chat[n-2].Text
+	history := store.ChatContext(rec.Chat[:n-2])
+	if !a.startAnswer(rec.ID, func() bool { return a.lib.ResetLastAnswer(rec.ID) }) {
+		return
+	}
+	a.streamAnswer(rec, history, question)
+}
+
+// startAnswer claims rec's Q&A for one answer, running prepare (which adds
+// or resets the answer turn) under the claim; false when the model is not
+// configured, an answer is already streaming, or prepare found nothing to
+// answer, in which case the claim is let go again.
+func (a *app) startAnswer(id string, prepare func() bool) bool {
+	if _, ok := a.llm(); !ok {
+		a.setStatus("请先在设置里配置大模型")
+		return false
 	}
 	a.mu.Lock()
-	if a.asking[rec.ID] {
+	if a.asking[id] {
 		a.mu.Unlock()
-		return
+		return false
 	}
-	a.asking[rec.ID] = true
+	a.asking[id] = true
 	a.mu.Unlock()
-	text := transcriptText(rec)
-	history := rec.Chat
-	a.lib.AppendChat(rec.ID, store.ChatMessage{Role: "user", Text: question})
-	a.lib.AppendChat(rec.ID, store.ChatMessage{Role: "assistant", Text: ""})
+	if !prepare() {
+		a.mu.Lock()
+		delete(a.asking, id)
+		a.mu.Unlock()
+		return false
+	}
 	a.ping()
+	return true
+}
+
+// streamAnswer runs the request in the background, filling the last answer
+// as it streams. stopAnswer cancels it, keeping what has arrived.
+func (a *app) streamAnswer(rec store.Recording, history []store.ChatMessage, question string) {
+	client, _ := a.llm()
+	text := transcriptText(rec)
+	ctx, cancel := context.WithCancel(context.Background())
+	a.mu.Lock()
+	a.askCancel[rec.ID] = cancel
+	a.mu.Unlock()
 	go func() {
+		defer cancel()
 		var acc strings.Builder
-		_, err := client.Ask(text, history, question, func(delta string) {
+		_, err := client.Ask(ctx, text, history, question, func(delta string) {
 			acc.WriteString(delta)
 			a.lib.StreamLastAssistant(rec.ID, acc.String())
 			a.ping()
 		})
-		if err != nil {
-			a.lib.StreamLastAssistant(rec.ID, "出错了："+err.Error())
+		out, failed := acc.String(), false
+		switch {
+		case errors.Is(err, context.Canceled):
+			if strings.TrimSpace(out) == "" {
+				out, failed = "（已停止）", true
+			} else {
+				out += "\n\n*（已停止）*"
+			}
+		case err != nil:
+			out, failed = "出错了："+err.Error(), true
 		}
-		a.lib.CommitChat(rec.ID)
+		a.lib.FinishLastAssistant(rec.ID, out, failed)
 		a.mu.Lock()
 		delete(a.asking, rec.ID)
+		delete(a.askCancel, rec.ID)
 		a.mu.Unlock()
 		a.ping()
 	}()
+}
+
+// stopAnswer cancels the answer streaming for id, if any.
+func (a *app) stopAnswer(id string) {
+	a.mu.Lock()
+	cancel := a.askCancel[id]
+	a.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+}
+
+// isAsking reports whether an answer is streaming for id.
+func (a *app) isAsking(id string) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.asking[id]
 }
