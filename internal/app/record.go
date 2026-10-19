@@ -32,15 +32,19 @@ func (a *app) startRecording() {
 	a.ping()
 }
 
-// stopRecording ends capture and, once the file is written, adds it to the
-// library and selects it.
+// stopRecording ends capture, paused or not, and, once the file is written,
+// adds it to the library and selects it. Its length is the time recorded,
+// read once the recorder is idle: pauses are not in the file, so they must
+// not be in the length either.
 func (a *app) stopRecording() {
-	_, elapsed, path, _ := a.rec.Snapshot()
+	_, _, path, _ := a.rec.Snapshot()
 	a.rec.Stop()
 	go func() {
+		var elapsed time.Duration
 		for {
-			st, _, _, _ := a.rec.Snapshot()
+			st, e, _, _ := a.rec.Snapshot()
 			if st == audio.StateIdle {
+				elapsed = e
 				break
 			}
 			time.Sleep(80 * time.Millisecond)

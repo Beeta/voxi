@@ -33,6 +33,10 @@ const (
 	StateStarting
 	StateRecording
 	StateStopping
+	// StatePaused keeps capture running but drops what it delivers, so
+	// resuming is instant and cannot fail; the file simply goes on from
+	// where it paused.
+	StatePaused
 )
 
 // The format every source is mixed into before it is encoded: 48 kHz
@@ -54,6 +58,10 @@ type chunk struct {
 type sourceSamples struct {
 	src     Source
 	samples []float32
+	// flush asks the encode goroutine to write out what it holds, for a
+	// pause: the sources' small arrival skew would otherwise be left in the
+	// mixer and come out after the pause, ahead of the resumed audio.
+	flush bool
 }
 
 // encoder streams mixed audio to a file, encoding frames as they arrive
@@ -72,8 +80,11 @@ type Recorder struct {
 	state   State
 	err     error
 	path    string
-	started time.Time
 	sources []Source
+	// The time recorded is recorded plus, while recording, the span since
+	// started: pauses add nothing to it.
+	started  time.Time
+	recorded time.Duration
 
 	// enc encodes mixed audio to the file. samples carries delivered
 	// buffers to the encode goroutine while recording (nil otherwise), and
@@ -88,6 +99,9 @@ type Recorder struct {
 
 	// platform is the OS-specific capture, nil where none is available.
 	platform capture
+	// newEncoder opens the output file; tests swap it for one that keeps the
+	// samples in memory.
+	newEncoder func(path string, bitrate int) (encoder, error)
 }
 
 // capture is the platform-specific audio capture behind the Recorder.
@@ -103,21 +117,27 @@ type capture interface {
 }
 
 func NewRecorder() *Recorder {
-	return &Recorder{state: StateIdle, platform: newCapture()}
+	return &Recorder{state: StateIdle, platform: newCapture(), newEncoder: newAACEncoder}
 }
 
 // available reports whether audio can be captured on this platform.
 func (r *Recorder) Available() (bool, string) { return r.platform.available() }
 
 // snapshot returns the Recorder's state for the UI, without holding the
-// lock while the UI draws.
+// lock while the UI draws. elapsed is the time recorded, pauses left out,
+// and holds the final length once the recording stops.
 func (r *Recorder) Snapshot() (state State, elapsed time.Duration, path string, err error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	return r.state, r.elapsedLocked(), r.path, r.err
+}
+
+// elapsedLocked is the time recorded so far. The caller holds mu.
+func (r *Recorder) elapsedLocked() time.Duration {
 	if r.state == StateRecording {
-		elapsed = time.Since(r.started)
+		return r.recorded + time.Since(r.started)
 	}
-	return r.state, elapsed, r.path, r.err
+	return r.recorded
 }
 
 // start captures the sources, encoding to path until stopped.
@@ -131,11 +151,12 @@ func (r *Recorder) Start(sources []Source, path string) {
 	r.err = nil
 	r.path = path
 	r.sources = sources
+	r.recorded = 0
 	r.mu.Unlock()
 	r.ping()
 
 	go func() {
-		enc, err := newAACEncoder(path, aacBitRate)
+		enc, err := r.newEncoder(path, aacBitRate)
 		if err != nil {
 			r.fail(err)
 			return
@@ -182,7 +203,8 @@ func (r *Recorder) fail(err error) {
 
 // deliver hands a source's buffer to the encode goroutine; called from the
 // system's audio thread. It never blocks: if the encoder falls behind, the
-// buffer is dropped rather than stall capture.
+// buffer is dropped rather than stall capture. While paused it drops every
+// buffer, which is what keeps the pause out of the file.
 func (r *Recorder) deliver(src Source, ch chunk) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -190,7 +212,7 @@ func (r *Recorder) deliver(src Source, ch chunk) {
 		return
 	}
 	select {
-	case r.samples <- sourceSamples{src, ch.samples}:
+	case r.samples <- sourceSamples{src: src, samples: ch.samples}:
 	default:
 	}
 }
@@ -202,6 +224,12 @@ func (r *Recorder) encodeLoop(sources []Source, enc encoder, sc <-chan sourceSam
 	defer close(done)
 	m := newMixer(sources)
 	for s := range sc {
+		if s.flush {
+			if out := m.flush(); out != nil {
+				r.encode(enc, out)
+			}
+			continue
+		}
 		m.add(s.src, s.samples)
 		if out := m.drain(); out != nil {
 			r.encode(enc, out)
@@ -223,13 +251,15 @@ func (r *Recorder) encode(enc encoder, out []float32) {
 	}
 }
 
-// stop ends capture, finishes encoding and closes the file.
+// stop ends capture, finishes encoding and closes the file. A paused
+// recording stops as it is.
 func (r *Recorder) Stop() {
 	r.mu.Lock()
-	if r.state != StateRecording {
+	if r.state != StateRecording && r.state != StatePaused {
 		r.mu.Unlock()
 		return
 	}
+	r.recorded = r.elapsedLocked()
 	r.state = StateStopping
 	sc, done, enc := r.samples, r.done, r.enc
 	r.samples = nil
@@ -252,6 +282,40 @@ func (r *Recorder) Stop() {
 	}()
 }
 
+// Pause stops taking in audio without ending the recording: capture keeps
+// running and its buffers are dropped until Resume. The samples already
+// handed to the encoder are mixed and written out first, so nothing from
+// before the pause is held back to come out after it.
+func (r *Recorder) Pause() {
+	r.mu.Lock()
+	if r.state != StateRecording {
+		r.mu.Unlock()
+		return
+	}
+	r.recorded = r.elapsedLocked()
+	r.state = StatePaused
+	if r.samples != nil {
+		select {
+		case r.samples <- sourceSamples{flush: true}:
+		default:
+		}
+	}
+	r.mu.Unlock()
+	r.ping()
+}
+
+// Resume takes in audio again after Pause.
+func (r *Recorder) Resume() {
+	r.mu.Lock()
+	if r.state != StatePaused {
+		r.mu.Unlock()
+		return
+	}
+	r.state, r.started = StateRecording, time.Now()
+	r.mu.Unlock()
+	r.ping()
+}
+
 // SetNotify sets the callback the recorder uses to ask the window for a
 // frame from any goroutine, so the elapsed time and the state show as they
 // change while recording.
@@ -271,16 +335,19 @@ func (r *Recorder) ping() {
 	}
 }
 
-// tick refreshes the elapsed time while recording.
+// tick refreshes the elapsed time while recording. It keeps going through
+// a pause, which a Resume ends, and stops with the recording.
 func (r *Recorder) tick() {
 	for range time.Tick(500 * time.Millisecond) {
 		r.mu.Lock()
-		recording := r.state == StateRecording
+		st := r.state
 		r.mu.Unlock()
-		if !recording {
+		if st != StateRecording && st != StatePaused {
 			return
 		}
-		r.ping()
+		if st == StateRecording {
+			r.ping()
+		}
 	}
 }
 

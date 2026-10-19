@@ -6,25 +6,52 @@ import (
 )
 
 // recordControl is the sidebar's record widget: a start button, or while a
-// capture is in flight the live timer with a stop button, a spinner, or a
-// startup error.
+// capture is in flight the live timer with pause / resume and stop, a
+// spinner, or a startup error.
 func (a *app) recordControl(c *ui.Context) {
 	st, elapsed, _, err := a.rec.Snapshot()
 	a.mu.Lock()
 	recording := a.recording
 	a.mu.Unlock()
 	switch {
-	case st == audio.StateRecording:
-		ui.Column(c).Padding(12).Gap(10).Radius(10).Background(cardBg2).Border(1, recRed).Children(func() {
+	case st == audio.StateRecording || st == audio.StatePaused:
+		paused := st == audio.StatePaused
+		// Paused, the red goes: the border and the timer turn muted, and the
+		// line says outright that nothing is being taken in, since the
+		// system's recording indicator stays on through a pause.
+		border, clock, title := recRed, recRed, "录制中"
+		if paused {
+			border, clock, title = line, muted, "已暂停"
+		}
+		ui.Column(c).Padding(12).Gap(10).Radius(10).Background(cardBg2).Border(1, border).Children(func() {
 			ui.Row(c).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, "录制中").FontSize(13).Bold().TextColor(ink).Grow(1)
-				ui.Text(c, formatClock(elapsed)).FontSize(15).Bold().TextColor(recRed)
+				ui.Text(c, title).FontSize(13).Bold().TextColor(ink).Grow(1)
+				ui.Text(c, formatClock(elapsed)).FontSize(15).Bold().TextColor(clock)
 			})
-			stop := ui.ButtonBase(c.Key("stop")).Padding(10, 16).Radius(8).Center().Background(recRed)
-			stop.Children(func() { ui.Text(c, "停止并保存").FontSize(13).Bold().TextColor(onAccent) })
-			if stop.Clicked() {
-				a.stopRecording()
+			if paused {
+				ui.Text(c, "暂停中不录入声音（系统录制指示仍会亮着）").FontSize(11).TextColor(muted)
 			}
+			ui.Row(c).Gap(8).Children(func() {
+				label := "暂停"
+				if paused {
+					label = "继续"
+				}
+				pr := ui.ButtonBase(c.Key("pause")).Padding(10, 12).Radius(8).Center().Border(1, btnStroke).Grow(1)
+				pr.Background(controlFill(pr, cardBg, cardBg3))
+				pr.Children(func() { ui.Text(c, label).FontSize(13).Bold().TextColor(ink) })
+				if pr.Clicked() {
+					if paused {
+						a.rec.Resume()
+					} else {
+						a.rec.Pause()
+					}
+				}
+				stop := ui.ButtonBase(c.Key("stop")).Padding(10, 12).Radius(8).Center().Background(recRed).Grow(1)
+				stop.Children(func() { ui.Text(c, "停止并保存").FontSize(13).Bold().TextColor(onAccent) })
+				if stop.Clicked() {
+					a.stopRecording()
+				}
+			})
 		})
 	case st == audio.StateStarting || st == audio.StateStopping:
 		ui.Row(c).Padding(12).Gap(10).Radius(10).Center().Background(cardBg2).Children(func() {
