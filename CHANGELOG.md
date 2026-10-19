@@ -17,6 +17,13 @@ CHANGELOG」一节。
 
 ## [未发布]
 
+### 内部
+
+- 测试不再读写用户目录：`internal/app` 的 `TestMain` 把应用数据目录指向一个临时目录，
+  录音库改用新的 `store.Open(path, root)` 开在各测试自己的 `t.TempDir()` 下。此前测试经
+  `store.OpenStore` 写进 `~/Library/Application Support/app.test/recordings.json`，积了
+  200 多条测试录音，测试之间还会互相看到对方的数据；该目录已删除。
+
 ## [0.6.0] - 2026-10-19
 
 ### 新增

@@ -24,10 +24,7 @@ func TestMakeScreenshot(t *testing.T) {
 		t.Skip("set VOXI_SHOT=1 to rewrite docs/screenshot.png")
 	}
 	dir := t.TempDir()
-	lib, err := store.OpenStore(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	lib := openTestLib(t, dir)
 	first := lib.Add("周会 · 数据资产", filepath.Join(dir, "a.m4a"), 1110)
 	lib.SetTranscript(first.ID, &store.Transcript{Segments: []store.Segment{
 		{Start: 0, End: 6, Text: "今天主要过三件事：进度、风险和下周排期。", Speaker: "主持人"},

@@ -149,7 +149,14 @@ func OpenStore(root string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Store{path: filepath.Join(dir, "recordings.json"), root: root}
+	return Open(filepath.Join(dir, "recordings.json"), root)
+}
+
+// Open loads the library index at path, as OpenStore does for the app's
+// own. Tests use it with a file under t.TempDir(), so each test has a
+// library of its own and none reads or writes the user's.
+func Open(path, root string) (*Store, error) {
+	s := &Store{path: path, root: root}
 	data, err := os.ReadFile(s.path)
 	if err != nil {
 		if os.IsNotExist(err) {

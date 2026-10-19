@@ -15,10 +15,7 @@ import (
 func summaryApp(t *testing.T, hasTranscript bool) (*app, store.Recording) {
 	t.Helper()
 	dir := t.TempDir()
-	lib, err := store.OpenStore(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	lib := openTestLib(t, dir)
 	rec := lib.Add("会议", filepath.Join(dir, "m.m4a"), 60)
 	if hasTranscript {
 		lib.SetTranscript(rec.ID, &store.Transcript{

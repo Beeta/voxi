@@ -29,10 +29,7 @@ func touchFile(t *testing.T, dir, name string) string {
 func audioApp(t *testing.T, withAudio, transcribed bool) (*app, *store.Store, store.Recording) {
 	t.Helper()
 	dir := t.TempDir()
-	lib, err := store.OpenStore(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	lib := openTestLib(t, dir)
 	file := filepath.Join(dir, "m.m4a")
 	if withAudio {
 		file = touchFile(t, dir, "m.m4a")

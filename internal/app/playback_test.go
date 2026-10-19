@@ -15,10 +15,7 @@ import (
 // is transcribed, so the transcript tab offers 重新识别 rather than 开始识别.
 func TestPlayerBarActionFollowsTab(t *testing.T) {
 	dir := t.TempDir()
-	lib, err := store.OpenStore(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	lib := openTestLib(t, dir)
 	rec := lib.Add("会议", filepath.Join(dir, "m.m4a"), 60)
 	lib.SetTranscript(rec.ID, &store.Transcript{
 		Segments: []store.Segment{{Start: 0, End: 3, Text: "你好"}},

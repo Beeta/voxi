@@ -7,7 +7,6 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/Beeta/voxi/internal/audio"
-	"github.com/Beeta/voxi/internal/store"
 )
 
 // TestRowContextMenu covers the recording row's context menu: the items it
@@ -15,10 +14,7 @@ import (
 // selection, and that delete asks before touching the file.
 func TestRowContextMenu(t *testing.T) {
 	dir := t.TempDir()
-	lib, err := store.OpenStore(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	lib := openTestLib(t, dir)
 	first := lib.Add("第一次", touchFile(t, dir, "one.m4a"), 3)
 	second := lib.Add("第二次", touchFile(t, dir, "two.m4a"), 4)
 	set := &settingsStore{path: filepath.Join(dir, "settings.json"), s: &Settings{}}

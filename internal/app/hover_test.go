@@ -8,7 +8,6 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/Beeta/voxi/internal/audio"
-	"github.com/Beeta/voxi/internal/store"
 )
 
 // sidebarRowY is the vertical center of the sidebar's header row, where the
@@ -48,10 +47,7 @@ func diffPixels(a, b *image.RGBA) int {
 func newHoverApp(t *testing.T, s Settings) *app {
 	t.Helper()
 	dir := t.TempDir()
-	lib, err := store.OpenStore(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	lib := openTestLib(t, dir)
 	lib.Add("录音", filepath.Join(dir, "a.m4a"), 60)
 	set := &settingsStore{path: filepath.Join(dir, "settings.json"), s: &s}
 	return newApp(lib, set, audio.NewRecorder())

@@ -6,7 +6,6 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/Beeta/voxi/internal/audio"
-	"github.com/Beeta/voxi/internal/store"
 )
 
 // TestSettingsDialogFitsTheWindow renders the real settings dialog at a
@@ -21,10 +20,7 @@ import (
 func TestSettingsDialogFitsTheWindow(t *testing.T) {
 	for _, h := range []int{480, 704, 900} {
 		dir := t.TempDir()
-		lib, err := store.OpenStore(dir)
-		if err != nil {
-			t.Fatal(err)
-		}
+		lib := openTestLib(t, dir)
 		set := &settingsStore{path: filepath.Join(dir, "settings.json"), s: &Settings{}}
 		a := newApp(lib, set, audio.NewRecorder())
 		a.showSettings = true

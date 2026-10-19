@@ -7,7 +7,6 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/Beeta/voxi/internal/audio"
-	"github.com/Beeta/voxi/internal/store"
 )
 
 // newSettingsApp is an app over a settings file under t.TempDir(), so a test
@@ -15,10 +14,7 @@ import (
 func newSettingsApp(t *testing.T) (*app, *settingsStore) {
 	t.Helper()
 	dir := t.TempDir()
-	lib, err := store.OpenStore(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	lib := openTestLib(t, dir)
 	set := &settingsStore{
 		path: filepath.Join(dir, "settings.json"),
 		s:    &Settings{Mic: true, System: true},

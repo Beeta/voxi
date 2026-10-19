@@ -53,7 +53,6 @@ func qaInputApp(t *testing.T, chat ...store.ChatMessage) (*app, *ui.Tester, stri
 		s.QAPresets = []QAPreset{{Label: "重点", Text: "总结重点"}}
 	})
 	rec := a.lib.Add("预设测试", filepath.Join(t.TempDir(), "x.m4a"), 1)
-	t.Cleanup(func() { a.lib.Remove(rec.ID) })
 	a.lib.SetTranscript(rec.ID, &store.Transcript{Segments: []store.Segment{{Text: "内容"}}})
 	for _, m := range chat {
 		a.lib.AppendChat(rec.ID, m)

@@ -23,7 +23,6 @@ func qaApp(t *testing.T, srv *httptest.Server) (*app, store.Recording) {
 	})
 	rec := a.lib.Add("问答测试", filepath.Join(t.TempDir(), "x.m4a"), 1)
 	a.lib.SetTranscript(rec.ID, &store.Transcript{Segments: []store.Segment{{Text: "今天讨论排期"}}})
-	t.Cleanup(func() { a.lib.Remove(rec.ID) })
 	rec, _ = a.lib.Get(rec.ID)
 	a.tab = 3
 	return a, rec
