@@ -1,6 +1,7 @@
 package app
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/Beeta/voxi/internal/llm"
@@ -52,4 +53,60 @@ func (a *app) verifyLLM(id string) {
 		a.mu.Unlock()
 		a.ping()
 	}()
+}
+
+// fetchModels asks a saved provider which models it serves, in the
+// background, and keeps the list for its card to offer.
+func (a *app) fetchModels(id string) {
+	s := a.settings.snapshot()
+	p := s.provider(id)
+	if p == nil {
+		return
+	}
+	base, key := strings.TrimSpace(p.BaseURL), strings.TrimSpace(p.Key)
+	a.mu.Lock()
+	if a.llmFetching[id] {
+		a.mu.Unlock()
+		return
+	}
+	if base == "" || key == "" {
+		a.llmFetchErr[id] = "请先填写 Base URL 和 API Key。"
+		a.mu.Unlock()
+		a.ping()
+		return
+	}
+	a.llmFetching[id] = true
+	delete(a.llmFetchErr, id)
+	a.mu.Unlock()
+	a.ping()
+	go func() {
+		ids, err := llm.ListModels(base, key)
+		a.mu.Lock()
+		delete(a.llmFetching, id)
+		if err != nil {
+			a.llmFetchErr[id] = "获取失败：" + err.Error()
+		} else {
+			a.llmFetched[id] = ids
+		}
+		a.mu.Unlock()
+		a.ping()
+	}()
+}
+
+// toggleModel adds model to a provider's list, or takes it out when it is
+// there already. The list is rewritten clean (trimmed, deduplicated).
+func (a *app) toggleModel(id, model string) {
+	a.settings.update(func(st *Settings) {
+		p := st.provider(id)
+		if p == nil {
+			return
+		}
+		names := p.modelNames()
+		if i := slices.Index(names, model); i >= 0 {
+			names = slices.Delete(names, i, i+1)
+		} else {
+			names = append(names, model)
+		}
+		p.Models = names
+	})
 }

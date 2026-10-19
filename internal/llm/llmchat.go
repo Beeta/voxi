@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -157,4 +158,57 @@ func Verify(baseURL, key, model string) error {
 		return fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 	return fmt.Errorf("HTTP %d：%s", resp.StatusCode, msg)
+}
+
+// ModelsEndpoint is the OpenAI-compatible model-list URL beside the
+// chat-completions one Endpoint derives from base: the same root with
+// /models in place of /chat/completions.
+func ModelsEndpoint(base string) string {
+	return strings.TrimSuffix(Endpoint(base), "/chat/completions") + "/models"
+}
+
+// ListModels asks the endpoint at baseURL which models it serves (GET
+// /models), so the settings dialog can offer them instead of having the
+// model ids typed from memory. The ids come back sorted.
+func ListModels(baseURL, key string) ([]string, error) {
+	req, err := http.NewRequest(http.MethodGet, ModelsEndpoint(baseURL), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+key)
+	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	if resp.StatusCode != http.StatusOK {
+		msg := strings.TrimSpace(string(raw))
+		if len(msg) > 300 {
+			msg = msg[:300]
+		}
+		if msg == "" {
+			return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+		}
+		return nil, fmt.Errorf("HTTP %d：%s", resp.StatusCode, msg)
+	}
+	var r struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return nil, fmt.Errorf("返回的不是模型列表：%w", err)
+	}
+	var ids []string
+	for _, m := range r.Data {
+		if id := strings.TrimSpace(m.ID); id != "" {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("接口没有返回任何模型")
+	}
+	sort.Strings(ids)
+	return ids, nil
 }

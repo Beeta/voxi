@@ -2,10 +2,13 @@ package app
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 )
@@ -161,5 +164,81 @@ func TestAddAndDeleteProvider(t *testing.T) {
 	tt.Frame()
 	if n := len(set.snapshot().LLMProviders); n != 0 {
 		t.Errorf("after confirming the delete there are %d providers", n)
+	}
+}
+
+// TestFetchedModelsToggle fetches from a fake /models, then clicks a chip to
+// add the model and again to take it out, through the real card.
+func TestFetchedModelsToggle(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"data":[{"id":"alpha"},{"id":"beta"}]}`))
+	}))
+	defer srv.Close()
+	a, set := newSettingsApp(t)
+	set.update(func(s *Settings) {
+		s.LLMProviders = []LLMProvider{{ID: "a", Name: "甲", BaseURL: srv.URL, Key: "k", Models: []string{"alpha"}}}
+	})
+	tt := ui.NewTester(func(c *ui.Context) { a.llmSettings(c, set.snapshot()) }, 616, 1200)
+	if err := tt.Click("获取模型列表"); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 200 && !tt.HasText("beta"); i++ {
+		time.Sleep(10 * time.Millisecond)
+		tt.Frame()
+	}
+	if !tt.HasText("beta") {
+		t.Fatalf("the fetched models did not show: %q", tt.Texts())
+	}
+	if err := tt.Click("beta"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if got := set.snapshot().LLMProviders[0].modelNames(); !slices.Equal(got, []string{"alpha", "beta"}) {
+		t.Fatalf("after clicking beta the models are %q", got)
+	}
+	if err := tt.Click("beta"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if got := set.snapshot().LLMProviders[0].modelNames(); !slices.Equal(got, []string{"alpha"}) {
+		t.Errorf("clicking beta again left %q", got)
+	}
+}
+
+// TestFilterModels: every word must appear, in any case.
+func TestFilterModels(t *testing.T) {
+	ids := []string{"gpt-4o", "gpt-4o-mini", "DeepSeek-Chat", "o1"}
+	if got := filterModels(ids, "4O mini"); !slices.Equal(got, []string{"gpt-4o-mini"}) {
+		t.Errorf("4O mini matched %q", got)
+	}
+	if got := filterModels(ids, " "); !slices.Equal(got, ids) {
+		t.Errorf("an empty filter matched %q", got)
+	}
+}
+
+// TestQuickModelSelect: the tabs only offer a picker when there is a choice
+// to make, and picking there is the same saved choice as in settings.
+func TestQuickModelSelect(t *testing.T) {
+	a, set := newSettingsApp(t)
+	set.update(func(s *Settings) {
+		s.LLMProviders = []LLMProvider{{ID: "a", Name: "甲", BaseURL: "https://a", Key: "k", Models: []string{"m1"}}}
+	})
+	tt := ui.NewTester(func(c *ui.Context) { a.quickModelSelect(c, "q") }, 400, 300)
+	tt.Frame()
+	if tt.HasText("甲 / m1") {
+		t.Error("a single model still gets a picker")
+	}
+	set.update(func(s *Settings) { s.LLMProviders[0].Models = []string{"m1", "m2"} })
+	tt.Frame()
+	if err := tt.Click("甲 / m1"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if err := tt.Click("甲 / m2"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if got := set.snapshot().LLMActive; got != (LLMChoice{Provider: "a", Model: "m2"}) {
+		t.Errorf("picking in the tab saved %+v", got)
 	}
 }

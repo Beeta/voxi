@@ -1,6 +1,7 @@
 package app
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
@@ -62,30 +63,53 @@ func (a *app) llmSettings(c *ui.Context, s Settings) {
 func (a *app) llmPicker(c *ui.Context, s Settings) {
 	ui.Row(c.Key("llm-pick")).Gap(10).AlignItems(ui.Center).Children(func() {
 		ui.Text(c, "使用模型").FontSize(13).TextColor(muted).Width(70)
-		opts := llmOptions(s.LLMProviders)
-		cur, ok := activeLLM(s)
-		if !ok {
+		if !a.modelSelect(c, "llm-select", s) {
 			ui.Text(c, "还没有可选的模型：先添加供应商并填写模型。").FontSize(12).TextColor(muted)
-			return
 		}
-		labels := make([]string, len(opts))
-		chosen := ""
-		for i, o := range opts {
-			labels[i] = o.Label
-			if o.Provider.ID == cur.Provider.ID && o.Model == cur.Model {
-				chosen = o.Label
+	})
+}
+
+// modelSelect is the drop-down of saved provider × model pairs, saving the
+// pick; it draws nothing and reports false when there is nothing to pick.
+// The settings dialog and the summary, mind-map and Q&A tabs share it, so
+// switching in one shows in all.
+func (a *app) modelSelect(c *ui.Context, key string, s Settings) bool {
+	opts := llmOptions(s.LLMProviders)
+	cur, ok := activeLLM(s)
+	if !ok {
+		return false
+	}
+	labels := make([]string, len(opts))
+	chosen := ""
+	for i, o := range opts {
+		labels[i] = o.Label
+		if o.Provider.ID == cur.Provider.ID && o.Model == cur.Model {
+			chosen = o.Label
+		}
+	}
+	// As with the other value-bound controls, the pick lands at the end of
+	// the pass: only Changed sees it.
+	if ui.Select(c.Key(key), &chosen, labels).Label("使用模型").FontSize(12).Changed() {
+		for _, o := range opts {
+			if o.Label == chosen {
+				pick := LLMChoice{Provider: o.Provider.ID, Model: o.Model}
+				a.settings.update(func(st *Settings) { st.LLMActive = pick })
 			}
 		}
-		// As with the other value-bound controls, the pick lands at the end
-		// of the pass: only Changed sees it.
-		if ui.Select(c.Key("llm-select"), &chosen, labels).Label("使用模型").Changed() {
-			for _, o := range opts {
-				if o.Label == chosen {
-					pick := LLMChoice{Provider: o.Provider.ID, Model: o.Model}
-					a.settings.update(func(st *Settings) { st.LLMActive = pick })
-				}
-			}
-		}
+	}
+	return true
+}
+
+// quickModelSelect is modelSelect beside a tab's generate or send button:
+// shown only when there is more than one model to choose from, and kept
+// narrow so a long label ends in an ellipsis instead of squeezing the bar.
+func (a *app) quickModelSelect(c *ui.Context, key string) {
+	s := a.settings.snapshot()
+	if len(llmOptions(s.LLMProviders)) < 2 {
+		return
+	}
+	ui.Row(c.Key(key)).MaxWidth(220).Shrink(1).Children(func() {
+		a.modelSelect(c, key+"-sel", s)
 	})
 }
 
@@ -99,6 +123,7 @@ func (a *app) providerCard(c *ui.Context, p LLMProvider) {
 	if a.llmVerifyID == p.ID {
 		msg, ok = a.llmVerifyMsg, a.llmVerifyOK
 	}
+	fetching := a.llmFetching[p.ID]
 	a.mu.Unlock()
 	id := p.ID
 	edit := func(fn func(*LLMProvider)) {
@@ -117,7 +142,8 @@ func (a *app) providerCard(c *ui.Context, p LLMProvider) {
 		a.fieldInput(c, k("models"), "模型", joinModels(p.Models), func(v string) {
 			edit(func(q *LLMProvider) { q.Models = splitModels(v) })
 		})
-		ui.Text(c, "多个模型用逗号分隔；验证连接用第一个。").FontSize(12).TextColor(muted)
+		ui.Text(c, "多个模型用逗号分隔；验证连接用第一个。也可以从接口拉取后点选。").FontSize(12).TextColor(muted)
+		a.fetchedModels(c, p)
 		ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
 			btn := ui.ButtonBase(c.Key(k("verify"))).Padding(8, 16).Radius(8).Center().Background(cardBg2).Border(1, line).Disabled(busy)
 			btn.Children(func() {
@@ -133,6 +159,20 @@ func (a *app) providerCard(c *ui.Context, p LLMProvider) {
 			if !busy && btn.Clicked() {
 				a.verifyLLM(id)
 			}
+			fb := ui.ButtonBase(c.Key(k("fetch"))).Padding(8, 16).Radius(8).Center().Background(cardBg2).Border(1, line).Disabled(fetching)
+			fb.Children(func() {
+				if fetching {
+					ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+						ui.Spinner(c)
+						ui.Text(c, "获取中…").FontSize(13).TextColor(muted)
+					})
+				} else {
+					ui.Text(c, "获取模型列表").FontSize(13).Bold().TextColor(ink)
+				}
+			})
+			if !fetching && fb.Clicked() {
+				a.fetchModels(id)
+			}
 			del := ui.ButtonBase(c.Key(k("del"))).Padding(8, 16).Radius(8).Center().Border(1, line)
 			del.Children(func() { ui.Text(c, "删除").FontSize(13).TextColor(recRed) })
 			if del.Clicked() {
@@ -147,4 +187,79 @@ func (a *app) providerCard(c *ui.Context, p LLMProvider) {
 			}
 		})
 	})
+}
+
+// fetchedModels shows what 获取模型列表 brought back for p: a filter and a
+// chip per model, accented when it is in p's list; a click adds or removes
+// it. Long lists are cut to the first matches so the dialog stays usable —
+// the filter narrows them down.
+func (a *app) fetchedModels(c *ui.Context, p LLMProvider) {
+	const shown = 40
+	a.mu.Lock()
+	ids := a.llmFetched[p.ID]
+	errMsg := a.llmFetchErr[p.ID]
+	a.mu.Unlock()
+	if errMsg != "" {
+		ui.Text(c, errMsg).FontSize(12).TextColor(recRed)
+	}
+	if len(ids) == 0 {
+		return
+	}
+	k := func(s string) string { return "llm-" + p.ID + "-" + s }
+	filter := a.llmFilter[p.ID]
+	ui.Column(c.Key(k("fetched"))).Gap(8).Children(func() {
+		f := filter
+		ti := ui.TextInput(c.Key(k("filter")), &f).FontSize(12).TextColor(ink)
+		ti.Placeholder("筛选接口返回的 " + strconv.Itoa(len(ids)) + " 个模型")
+		if ti.Changed() {
+			a.llmFilter[p.ID] = f
+		}
+		have := map[string]bool{}
+		for _, m := range p.modelNames() {
+			have[m] = true
+		}
+		match := filterModels(ids, filter)
+		ui.Row(c).Wrap().Gap(6).Children(func() {
+			for i, m := range match {
+				if i == shown {
+					break
+				}
+				chip := ui.ButtonBase(c.Key(k("m-"+m))).Padding(4, 10).Radius(999).Border(1, line)
+				fg := ink
+				if have[m] {
+					chip.Background(accent).Border(1, accent)
+					fg = onAccent
+				} else {
+					chip.Background(cardBg2)
+				}
+				chip.Children(func() { ui.Text(c, m).FontSize(12).TextColor(fg) })
+				if chip.Clicked() {
+					a.toggleModel(p.ID, m)
+				}
+			}
+		})
+		if len(match) > shown {
+			ui.Text(c, "还有 "+strconv.Itoa(len(match)-shown)+" 个未显示，输入关键字筛选。").FontSize(12).TextColor(muted)
+		} else if len(match) == 0 {
+			ui.Text(c, "没有匹配的模型。").FontSize(12).TextColor(muted)
+		}
+	})
+}
+
+// filterModels keeps the ids containing every space-separated word of q,
+// ignoring case.
+func filterModels(ids []string, q string) []string {
+	words := strings.Fields(strings.ToLower(q))
+	var out []string
+next:
+	for _, id := range ids {
+		l := strings.ToLower(id)
+		for _, w := range words {
+			if !strings.Contains(l, w) {
+				continue next
+			}
+		}
+		out = append(out, id)
+	}
+	return out
 }

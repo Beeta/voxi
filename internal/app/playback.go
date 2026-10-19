@@ -96,14 +96,18 @@ func (a *app) transcriptView(c *ui.Context, rec store.Recording) {
 
 // tabAction renders the current tab's primary action in the player bar, to
 // the right of the duration: transcribe on the transcript tab, generate on
-// the summary and mind-map tabs. The other tabs (Q&A, notes) have none.
+// the summary and mind-map tabs, with the model picker in front of it when
+// there are models to choose among. The other tabs (Q&A, notes) have none;
+// Q&A keeps its picker beside its own send button.
 func (a *app) tabAction(c *ui.Context, rec store.Recording) {
 	switch a.tab {
 	case 0:
 		a.transcribeAction(c, rec)
 	case 1:
+		a.quickModelSelect(c, "sum-model")
 		a.summaryAction(c, rec)
 	case 2:
+		a.quickModelSelect(c, "mind-model")
 		a.mindmapAction(c, rec)
 	}
 }

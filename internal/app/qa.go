@@ -63,6 +63,7 @@ func (a *app) qaInput(c *ui.Context, rec store.Recording, busy bool) {
 			if ta.Changed() {
 				a.draftQ[rec.ID] = q
 			}
+			a.quickModelSelect(c, "qa-model")
 			off := busy || !hasTranscript || strings.TrimSpace(a.draftQ[rec.ID]) == ""
 			b := ui.ButtonBase(c.Key("send")).Padding(10, 16).Radius(8).Center().Background(accent).Disabled(off)
 			if off {

@@ -37,6 +37,10 @@ type app struct {
 	llmVerifyID  string // the provider the message below is about
 	llmVerifyMsg string
 	llmVerifyOK  bool
+	// Model lists fetched from each provider's /models, by provider id.
+	llmFetching map[string]bool
+	llmFetched  map[string][]string
+	llmFetchErr map[string]string
 
 	recording bool
 
@@ -55,6 +59,7 @@ type app struct {
 	confirmDel      bool
 	confirmDelAudio bool // dropping the audio while keeping the text
 	delProviderID   string // the LLM provider the delete confirmation is about
+	llmFilter       map[string]string // per-provider filter over its fetched models
 	confirmDelProv  bool
 	pickingDir      bool // a recordings-directory dialog is open
 
@@ -107,6 +112,10 @@ func newApp(st *store.Store, set *settingsStore, rec *audio.Recorder) *app {
 		summarizing:  map[string]bool{},
 		mindmapping:  map[string]bool{},
 		asking:       map[string]bool{},
+		llmFetching:  map[string]bool{},
+		llmFetched:   map[string][]string{},
+		llmFetchErr:  map[string]string{},
+		llmFilter:    map[string]string{},
 		expanded:     map[string]bool{},
 		draftQ:       map[string]string{},
 		draftPrompt:  map[string]string{},
