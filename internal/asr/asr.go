@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,49 +21,113 @@ import (
 type Transcriber struct {
 	apiKey      string
 	cloudflared string
+	tunnel      tunnelOps
+	interval    time.Duration // between result queries; 0 is the default
 }
 
 // New returns a transcriber that submits audio through the cloudflared binary
 // at cloudflared, or the default install location when that is empty.
 func New(apiKey, cloudflared string) Transcriber {
-	return Transcriber{apiKey: apiKey, cloudflared: cloudflared}
+	return Transcriber{apiKey: apiKey, cloudflared: cloudflared, tunnel: realTunnel}
 }
 
 // Transcribe serves path over a tunnel, submits it, polls for the result and
 // returns timed segments. duration backs a single fallback segment when the
-// service returns no utterance timings.
-func (t Transcriber) Transcribe(path string, duration float64) (*store.Transcript, error) {
+// service returns no utterance timings. onProgress, which may be nil, hears
+// every change of step and detail as it happens, from the goroutines doing
+// the work; the last one it hears is the final state, failed step included.
+func (t Transcriber) Transcribe(path string, duration float64, onProgress func(Progress)) (*store.Transcript, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Minute)
 	defer cancel() // also kills cloudflared
-
-	port, route, shutdown, err := tunnel.StartFileServer(path)
-	if err != nil {
-		return nil, fmt.Errorf("启动本地文件服务失败：%w", err)
+	tr := newTracker(onProgress)
+	if fi, err := os.Stat(path); err == nil {
+		tr.update(func(p *Progress) { p.Size = fi.Size() })
 	}
+
+	tr.begin(StepServe)
+	port, route, shutdown, err := t.tunnel.serve(path, func(n int64) {
+		tr.update(func(p *Progress) { p.Served += n })
+	})
+	if err != nil {
+		return nil, tr.end(StepServe, fmt.Errorf("启动本地文件服务失败：%w", err))
+	}
+	tr.end(StepServe, nil)
 	defer func() {
 		sh, c := context.WithTimeout(context.Background(), 3*time.Second)
 		defer c()
 		_ = shutdown(sh)
 	}()
 
-	base, err := tunnel.StartTunnel(ctx, port, t.cloudflared)
+	tr.begin(StepTunnel)
+	base, err := t.tunnel.start(ctx, port, t.cloudflared)
 	if err != nil {
-		return nil, err
+		return nil, tr.end(StepTunnel, err)
 	}
-	fileURL := base + route
-	if err := tunnel.WaitTunnelReady(ctx, fileURL); err != nil {
-		return nil, err
+	if u, err := url.Parse(base); err == nil {
+		tr.detail(StepTunnel, u.Host) // the host only: the path's token keeps the file private
 	}
+	tr.end(StepTunnel, nil)
 
+	tr.begin(StepProbe)
+	fileURL := base + route
+	err = t.tunnel.wait(ctx, fileURL, func(n int, last string) {
+		d := "第 " + strconv.Itoa(n) + " 次探测"
+		if last != "" {
+			d += "（上次：" + last + "）"
+		}
+		tr.detail(StepProbe, d)
+	})
+	if err != nil {
+		return nil, tr.end(StepProbe, err)
+	}
+	tr.end(StepProbe, nil)
+
+	tr.begin(StepSubmit)
 	taskID, err := submitTask(t.apiKey, fileURL, detectFormat(path))
 	if err != nil {
-		return nil, err
+		return nil, tr.end(StepSubmit, err)
 	}
-	body, err := queryResult(ctx, t.apiKey, taskID, 5*time.Second, 20*time.Minute)
+	tr.update(func(p *Progress) { p.TaskID = taskID })
+	tr.end(StepSubmit, nil)
+
+	tr.begin(StepWait)
+	body, err := queryResult(ctx, t.apiKey, taskID, t.pollInterval(), 20*time.Minute, func(queued bool) {
+		tr.update(func(p *Progress) { p.Polls++; p.Queued = queued })
+	})
 	if err != nil {
-		return nil, err
+		return nil, tr.end(StepWait, err)
 	}
-	return parseTranscript(body, duration), nil
+	tr.update(func(p *Progress) { p.Polls++; p.Queued = false })
+	tr.end(StepWait, nil)
+
+	tr.begin(StepParse)
+	ts := parseTranscript(body, duration)
+	tr.detail(StepParse, strconv.Itoa(len(ts.Segments))+" 段")
+	tr.end(StepParse, nil)
+	return ts, nil
+}
+
+// tunnelOps are the steps that expose the file, so tests can do without
+// cloudflared and the public internet.
+type tunnelOps struct {
+	serve func(path string, onSent func(int64)) (int, string, func(context.Context) error, error)
+	start func(ctx context.Context, port int, cloudflared string) (string, error)
+	wait  func(ctx context.Context, fileURL string, onAttempt func(int, string)) error
+}
+
+// realTunnel exposes the file through a cloudflared quick tunnel.
+var realTunnel = tunnelOps{
+	serve: tunnel.StartWatchedFileServer,
+	start: tunnel.StartTunnel,
+	wait:  tunnel.WaitTunnelReadyWatched,
+}
+
+// pollInterval is how often the result is queried.
+func (t Transcriber) pollInterval() time.Duration {
+	if t.interval > 0 {
+		return t.interval
+	}
+	return 5 * time.Second
 }
 
 // detectFormat maps a file extension to Volc's format field.

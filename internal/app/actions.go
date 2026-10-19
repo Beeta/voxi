@@ -16,14 +16,15 @@ func (a *app) ping() {
 	}
 }
 
-// tick refreshes the window while recording or playing so the timer and the
-// playback position advance.
+// tick refreshes the window while recording, playing or transcribing so the
+// timers and the playback position advance.
 func (a *app) tick() {
 	for range time.Tick(250 * time.Millisecond) {
 		a.mu.Lock()
 		p, recording, notify := a.player, a.recording, a.notify
+		transcribing := len(a.transcribing) > 0
 		a.mu.Unlock()
-		if notify != nil && (recording || (p != nil && p.IsPlaying())) {
+		if notify != nil && (recording || transcribing || (p != nil && p.IsPlaying())) {
 			notify()
 		}
 	}

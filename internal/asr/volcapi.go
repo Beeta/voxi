@@ -13,10 +13,18 @@ import (
 	"github.com/Beeta/voxi/internal/tunnel"
 )
 
+const volcResourceID = "volc.seedasr.auc" // 豆包录音文件识别模型 2.0
+
+// The service's endpoints; variables so tests can point them at a fake.
+var (
+	volcSubmitURL = "https://openspeech.bytedance.com/api/v3/auc/bigmodel/submit"
+	volcQueryURL  = "https://openspeech.bytedance.com/api/v3/auc/bigmodel/query"
+)
+
+// Status codes the query answers with while the task is not done yet.
 const (
-	volcSubmitURL  = "https://openspeech.bytedance.com/api/v3/auc/bigmodel/submit"
-	volcQueryURL   = "https://openspeech.bytedance.com/api/v3/auc/bigmodel/query"
-	volcResourceID = "volc.seedasr.auc" // 豆包录音文件识别模型 2.0
+	volcQueued     = "20000001"
+	volcProcessing = "20000002"
 )
 
 type volcAudio struct {
@@ -84,7 +92,9 @@ func submitTask(apiKey, fileURL, format string) (string, error) {
 }
 
 // queryResult polls until the task finishes, returning the raw result JSON.
-func queryResult(ctx context.Context, apiKey, taskID string, interval, timeout time.Duration) ([]byte, error) {
+// onPoll, which may be nil, hears each answer that is not the result yet:
+// whether the task is still queued (or already processing).
+func queryResult(ctx context.Context, apiKey, taskID string, interval, timeout time.Duration, onPoll func(queued bool)) ([]byte, error) {
 	deadline := time.Now().Add(timeout)
 	for {
 		if time.Now().After(deadline) {
@@ -107,7 +117,10 @@ func queryResult(ctx context.Context, apiKey, taskID string, interval, timeout t
 		switch resp.Header.Get("X-Api-Status-Code") {
 		case "20000000":
 			return respBody, nil
-		case "20000001", "20000002":
+		case volcQueued, volcProcessing:
+			if onPoll != nil {
+				onPoll(resp.Header.Get("X-Api-Status-Code") == volcQueued)
+			}
 			select {
 			case <-time.After(interval):
 			case <-ctx.Done():

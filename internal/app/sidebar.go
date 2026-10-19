@@ -146,7 +146,7 @@ func (a *app) fileRow(c *ui.Context, rec store.Recording) {
 				ui.Icon(c, iconText).FontSize(13).TextColor(okGreen)
 			}
 		})
-		ui.Text(c, recMeta(rec)).FontSize(11).TextColor(muted)
+		ui.Text(c, recMetaStatus(rec, a.asrStatus(rec.ID))).FontSize(11).TextColor(muted)
 	})
 	if row.Clicked() {
 		a.selectRec(rec.ID)

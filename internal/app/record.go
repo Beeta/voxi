@@ -65,7 +65,9 @@ func (a *app) stopRecording() {
 }
 
 // transcribe runs ASR on the recording in the background with 豆包语音, writing
-// the transcript back when it finishes. The audio is uploaded as-is.
+// the transcript back when it finishes. The audio is uploaded as-is. Every
+// step is kept in a.asrProgress for the transcript tab to show, and written
+// to the ASR log.
 func (a *app) transcribe(rec store.Recording) {
 	set := a.settings.snapshot()
 	key := strings.TrimSpace(set.ASRKey)
@@ -82,21 +84,34 @@ func (a *app) transcribe(rec store.Recording) {
 	}
 	delete(a.asrErr, rec.ID)
 	a.transcribing[rec.ID] = true
+	a.asrProgress[rec.ID] = asr.Progress{Started: time.Now()}
 	a.mu.Unlock()
 	a.ping()
 	go func() {
+		log := newASRLog(rec)
 		err := guard(func() error {
-			t, err := asr.New(key, set.CloudflaredPath).Transcribe(rec.File, rec.Duration)
+			t, err := a.runASR(key, set.CloudflaredPath, rec.File, rec.Duration, func(p asr.Progress) {
+				log.progress(p)
+				a.mu.Lock()
+				a.asrProgress[rec.ID] = p
+				a.mu.Unlock()
+				a.ping()
+			})
 			if err != nil {
 				return err
 			}
 			a.lib.SetTranscript(rec.ID, t)
 			return nil
 		})
+		log.finish(err)
 		a.mu.Lock()
 		delete(a.transcribing, rec.ID)
 		if err != nil {
 			a.asrErr[rec.ID] = err.Error()
+		} else {
+			// Done: the transcript replaces the steps. A failure keeps them,
+			// so the page still shows which step it was.
+			delete(a.asrProgress, rec.ID)
 		}
 		a.mu.Unlock()
 		a.ping()

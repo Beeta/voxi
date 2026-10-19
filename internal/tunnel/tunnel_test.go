@@ -58,3 +58,38 @@ func TestStartFileServerServesAwkwardNames(t *testing.T) {
 		})
 	}
 }
+
+// TestWatchedFileServerCountsFetchesNotProbes: the bytes the service fetches
+// are reported, the reachability probes' are not.
+func TestWatchedFileServerCountsFetchesNotProbes(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "a.m4a")
+	os.WriteFile(path, []byte("0123456789"), 0o644)
+	var sent int64
+	port, route, shutdown, err := StartWatchedFileServer(path, func(n int64) { sent += n })
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer shutdown(context.Background())
+	url := fmt.Sprintf("http://127.0.0.1:%d%s", port, route)
+
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	req.Header.Set(ProbeHeader, "1")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+	if sent != 0 {
+		t.Fatalf("a probe counted %d bytes", sent)
+	}
+	resp, err = http.Get(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+	if sent != 10 {
+		t.Errorf("the fetch counted %d bytes, want 10", sent)
+	}
+}

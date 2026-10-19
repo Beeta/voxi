@@ -36,6 +36,7 @@ func probeOnce(ctx context.Context, client *http.Client, fileURL string) error {
 		return err
 	}
 	req.Header.Set("Range", "bytes=0-1")
+	req.Header.Set(ProbeHeader, "1")
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -50,10 +51,20 @@ func probeOnce(ctx context.Context, client *http.Client, fileURL string) error {
 
 // WaitTunnelReady polls the public URL until the tunnel edge serves the file.
 func WaitTunnelReady(ctx context.Context, fileURL string) error {
+	return WaitTunnelReadyWatched(ctx, fileURL, nil)
+}
+
+// WaitTunnelReadyWatched is WaitTunnelReady calling onAttempt before each
+// round of probes with its number, from 1, and how the last round failed
+// ("" before the first). onAttempt may be nil.
+func WaitTunnelReadyWatched(ctx context.Context, fileURL string, onAttempt func(n int, last string)) error {
 	deadline := time.Now().Add(60 * time.Second)
 	clients := tunnelProbers()
 	var last string
-	for time.Now().Before(deadline) {
+	for n := 1; time.Now().Before(deadline); n++ {
+		if onAttempt != nil {
+			onAttempt(n, last)
+		}
 		for _, client := range clients {
 			if err := probeOnce(ctx, client, fileURL); err == nil {
 				return nil

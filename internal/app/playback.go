@@ -68,15 +68,17 @@ func (a *app) transcriptView(c *ui.Context, rec store.Recording) {
 	a.mu.Lock()
 	transcribing := a.transcribing[rec.ID]
 	errMsg := a.asrErr[rec.ID]
+	prog, hasProg := a.asrProgress[rec.ID]
 	a.mu.Unlock()
 	// The transcribe button lives in the player bar now (tabAction); this is
 	// just the transcript, or what stands in for it before there is one.
 	switch {
 	case transcribing:
-		ui.Row(c).Gap(10).AlignItems(ui.Center).Padding(16).Children(func() {
-			ui.Spinner(c)
-			ui.Text(c, "识别中…（正在上传音频并等待火山识别，可能需要数十秒）").FontSize(13).TextColor(muted)
-		})
+		a.asrSteps(c, prog, true)
+	case errMsg != "" && hasProg && rec.Transcript == nil:
+		// A failed run keeps its steps on screen, so it is plain which one
+		// it was; 开始识别 below tries again.
+		a.asrSteps(c, prog, false)
 	case rec.Transcript == nil:
 		ui.Column(c).Padding(16).Radius(10).Background(cardBg).Gap(8).Children(func() {
 			ui.Text(c, "尚未识别。点击底部的「开始识别」生成带时间线的文字。").FontSize(13).TextColor(muted)

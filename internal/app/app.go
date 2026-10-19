@@ -9,6 +9,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/Beeta/voxi/internal/asr"
 	"github.com/Beeta/voxi/internal/audio"
 	"github.com/Beeta/voxi/internal/store"
 	"github.com/egoist/mygo"
@@ -30,6 +31,7 @@ type app struct {
 	playPos      float64
 	transcribing map[string]bool
 	asrErr       map[string]string
+	asrProgress  map[string]asr.Progress // the steps of a transcription under way, or of the last that failed
 	summarizing  map[string]bool
 	mindmapping  map[string]bool
 	asking       map[string]bool
@@ -118,6 +120,11 @@ type app struct {
 	// a whole delete would wait for an event loop that never comes.
 	trashItem func(string) error
 
+	// runASR transcribes a file, reporting each step. A field so a test can
+	// drive the transcript tab through the steps without cloudflared or
+	// the service.
+	runASR func(key, cloudflared, path string, duration float64, onProgress func(asr.Progress)) (*store.Transcript, error)
+
 	// version is the app's version, shown in the settings dialog. It is
 	// empty for a build that carries none, such as a plain `go run`.
 	version string
@@ -131,6 +138,7 @@ func newApp(st *store.Store, set *settingsStore, rec *audio.Recorder) *app {
 		version:      mygo.App.Version(),
 		transcribing: map[string]bool{},
 		asrErr:       map[string]string{},
+		asrProgress:  map[string]asr.Progress{},
 		summarizing:  map[string]bool{},
 		mindmapping:  map[string]bool{},
 		asking:       map[string]bool{},
@@ -147,6 +155,9 @@ func newApp(st *store.Store, set *settingsStore, rec *audio.Recorder) *app {
 		editSeg:      -1,
 		setTheme:     mygo.Theme.SetSource,
 		trashItem:    mygo.Shell.TrashItem,
+		runASR: func(key, cf, path string, dur float64, on func(asr.Progress)) (*store.Transcript, error) {
+			return asr.New(key, cf).Transcribe(path, dur, on)
+		},
 
 		// per-provider fold state of the fetched model lists
 		llmShowFetched: map[string]bool{},

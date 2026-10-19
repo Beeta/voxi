@@ -56,9 +56,17 @@ func formatSecs(sec float64) string {
 
 // recMeta is the one-line summary under a recording's name.
 func recMeta(rec store.Recording) string {
-	status := "未识别"
-	if rec.Transcript != nil {
-		status = "已识别"
+	return recMetaStatus(rec, "")
+}
+
+// recMetaStatus is recMeta with status in place of 已识别 / 未识别 when it is
+// set: the step a transcription under way is at.
+func recMetaStatus(rec store.Recording, status string) string {
+	if status == "" {
+		status = "未识别"
+		if rec.Transcript != nil {
+			status = "已识别"
+		}
 	}
 	meta := fmt.Sprintf("%s · %s · %s", rec.Created.Format("01-02 15:04"), formatSecs(rec.Duration), status)
 	// The row says when there is no audio left to play: the recording is

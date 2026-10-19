@@ -20,7 +20,7 @@ func (a *app) detail(c *ui.Context) {
 	col.Children(func() {
 		ui.Column(c).Padding(28, 32, 16).Gap(6).Children(func() {
 			a.titleRow(c, rec)
-			ui.Text(c, recMeta(rec)).FontSize(12).TextColor(muted)
+			ui.Text(c, recMetaStatus(rec, a.asrStatus(rec.ID))).FontSize(12).TextColor(muted)
 		})
 		ui.Column(c).Padding(0, 32).Children(func() {
 			ui.Tabs(c.Key("tab"), &a.tab, "转写", "摘要", "脑图", "问答", "笔记")

@@ -69,10 +69,17 @@ func PickFreePort() (int, error) {
 // path, returning the port, the route and a shutdown func. The token keeps the
 // public tunnel URL unguessable.
 func StartFileServer(filePath string) (int, string, func(context.Context) error, error) {
-	port, err := PickFreePort()
-	if err != nil {
-		return 0, "", nil, err
-	}
+	return StartWatchedFileServer(filePath, nil)
+}
+
+// ProbeHeader marks the reachability probes' requests, so the file server
+// can tell them from the service fetching the audio.
+const ProbeHeader = "X-Voxi-Probe"
+
+// StartWatchedFileServer is StartFileServer reporting, through onSent, the
+// bytes sent to whoever fetches the file — the probes (ProbeHeader) left
+// out — as they go. onSent may be nil, and runs on the server's goroutines.
+func StartWatchedFileServer(filePath string, onSent func(n int64)) (int, string, func(context.Context) error, error) {
 	token, err := NewUUID()
 	if err != nil {
 		return 0, "", nil, err
@@ -86,11 +93,36 @@ func StartFileServer(filePath string) (int, string, func(context.Context) error,
 	route := "/" + token + "/audio" + safeExt(filePath)
 	mux := http.NewServeMux()
 	mux.HandleFunc(route, func(w http.ResponseWriter, r *http.Request) {
+		if onSent != nil && r.Header.Get(ProbeHeader) == "" {
+			w = countingWriter{w, onSent}
+		}
 		http.ServeFile(w, r, filePath)
 	})
-	srv := &http.Server{Addr: fmt.Sprintf("127.0.0.1:%d", port), Handler: mux}
-	go func() { _ = srv.ListenAndServe() }()
-	return port, route, srv.Shutdown, nil
+	// Listen before returning: the caller fetches the file at once, and a
+	// server still starting in its goroutine refused that first request.
+	// Port 0 lets the kernel pick, with no gap for another process to take
+	// a port chosen beforehand.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, "", nil, err
+	}
+	srv := &http.Server{Handler: mux}
+	go func() { _ = srv.Serve(ln) }()
+	return ln.Addr().(*net.TCPAddr).Port, route, srv.Shutdown, nil
+}
+
+// countingWriter reports each write's size to sent.
+type countingWriter struct {
+	http.ResponseWriter
+	sent func(int64)
+}
+
+func (w countingWriter) Write(b []byte) (int, error) {
+	n, err := w.ResponseWriter.Write(b)
+	if n > 0 {
+		w.sent(int64(n))
+	}
+	return n, err
 }
 
 // safeExt returns path's extension lowercased when it is short and holds only
