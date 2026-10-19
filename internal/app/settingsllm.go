@@ -29,3 +29,122 @@ func (a *app) endpointHint(c *ui.Context, base string) {
 	}
 	ui.Text(c, "请求地址："+llm.Endpoint(base)).FontSize(12).TextColor(muted)
 }
+
+// llmSettings picks the model in use among the saved providers × models, and
+// edits the providers: add, edit, verify, delete.
+func (a *app) llmSettings(c *ui.Context, s Settings) {
+	a.settingsSection(c, "大模型配置", func() {
+		a.llmPicker(c, s)
+		for _, p := range s.LLMProviders {
+			a.providerCard(c, p)
+		}
+		add := ui.ButtonBase(c.Key("llm-add")).Padding(8, 16).Radius(8).Center().Background(cardBg2).Border(1, line)
+		add.Children(func() { ui.Text(c, "+ 添加供应商").FontSize(13).Bold().TextColor(ink) })
+		if add.Clicked() {
+			a.settings.update(func(st *Settings) {
+				st.LLMProviders = append(st.LLMProviders, LLMProvider{ID: newProviderID(), Name: "新供应商"})
+			})
+		}
+	})
+	name := ""
+	if p := s.provider(a.delProviderID); p != nil {
+		name = p.Name
+	}
+	if i := ui.AlertDialog(c.Key("llm-delq"), &a.confirmDelProv, "删除供应商？",
+		"将删除「"+name+"」及其 API Key 和模型；正在使用它时会改用列表里的第一个模型。", "删除供应商", "取消"); i == 0 {
+		id := a.delProviderID
+		a.settings.update(func(st *Settings) { st.removeProvider(id) })
+	}
+}
+
+// llmPicker chooses the provider × model that summaries, mind maps and Q&A
+// use.
+func (a *app) llmPicker(c *ui.Context, s Settings) {
+	ui.Row(c.Key("llm-pick")).Gap(10).AlignItems(ui.Center).Children(func() {
+		ui.Text(c, "使用模型").FontSize(13).TextColor(muted).Width(70)
+		opts := llmOptions(s.LLMProviders)
+		cur, ok := activeLLM(s)
+		if !ok {
+			ui.Text(c, "还没有可选的模型：先添加供应商并填写模型。").FontSize(12).TextColor(muted)
+			return
+		}
+		labels := make([]string, len(opts))
+		chosen := ""
+		for i, o := range opts {
+			labels[i] = o.Label
+			if o.Provider.ID == cur.Provider.ID && o.Model == cur.Model {
+				chosen = o.Label
+			}
+		}
+		// As with the other value-bound controls, the pick lands at the end
+		// of the pass: only Changed sees it.
+		if ui.Select(c.Key("llm-select"), &chosen, labels).Label("使用模型").Changed() {
+			for _, o := range opts {
+				if o.Label == chosen {
+					pick := LLMChoice{Provider: o.Provider.ID, Model: o.Model}
+					a.settings.update(func(st *Settings) { st.LLMActive = pick })
+				}
+			}
+		}
+	})
+}
+
+// providerCard edits one saved provider in place.
+func (a *app) providerCard(c *ui.Context, p LLMProvider) {
+	a.mu.Lock()
+	verifying := a.verifyingLLM && a.llmVerifyID == p.ID
+	busy := a.verifyingLLM
+	var msg string
+	var ok bool
+	if a.llmVerifyID == p.ID {
+		msg, ok = a.llmVerifyMsg, a.llmVerifyOK
+	}
+	a.mu.Unlock()
+	id := p.ID
+	edit := func(fn func(*LLMProvider)) {
+		a.settings.update(func(st *Settings) {
+			if q := st.provider(id); q != nil {
+				fn(q)
+			}
+		})
+	}
+	k := func(s string) string { return "llm-" + id + "-" + s }
+	ui.Column(c.Key(k("card"))).Gap(10).Padding(12, 12).Radius(10).Border(1, line).Children(func() {
+		a.fieldInput(c, k("name"), "名称", p.Name, func(v string) { edit(func(q *LLMProvider) { q.Name = v }) })
+		a.fieldInput(c, k("base"), "Base URL", p.BaseURL, func(v string) { edit(func(q *LLMProvider) { q.BaseURL = v }) })
+		a.endpointHint(c, p.BaseURL)
+		a.fieldInput(c, k("key"), "API Key", p.Key, func(v string) { edit(func(q *LLMProvider) { q.Key = v }) })
+		a.fieldInput(c, k("models"), "模型", joinModels(p.Models), func(v string) {
+			edit(func(q *LLMProvider) { q.Models = splitModels(v) })
+		})
+		ui.Text(c, "多个模型用逗号分隔；验证连接用第一个。").FontSize(12).TextColor(muted)
+		ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
+			btn := ui.ButtonBase(c.Key(k("verify"))).Padding(8, 16).Radius(8).Center().Background(cardBg2).Border(1, line).Disabled(busy)
+			btn.Children(func() {
+				if verifying {
+					ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+						ui.Spinner(c)
+						ui.Text(c, "验证中…").FontSize(13).TextColor(muted)
+					})
+				} else {
+					ui.Text(c, "验证连接").FontSize(13).Bold().TextColor(ink)
+				}
+			})
+			if !busy && btn.Clicked() {
+				a.verifyLLM(id)
+			}
+			del := ui.ButtonBase(c.Key(k("del"))).Padding(8, 16).Radius(8).Center().Border(1, line)
+			del.Children(func() { ui.Text(c, "删除").FontSize(13).TextColor(recRed) })
+			if del.Clicked() {
+				a.delProviderID, a.confirmDelProv = id, true
+			}
+			if msg != "" {
+				col := recRed
+				if ok {
+					col = okGreen
+				}
+				ui.Text(c, msg).FontSize(12).TextColor(col).Grow(1)
+			}
+		})
+	})
+}

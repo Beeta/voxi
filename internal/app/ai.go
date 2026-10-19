@@ -30,17 +30,19 @@ func transcriptText(rec store.Recording) string {
 	return b.String()
 }
 
-// llm builds a model client from the current settings; ok is false when the
+// llm builds a model client for the picked provider × model; ok is false when the
 // LLM is not fully configured yet.
 func (a *app) llm() (llm.Client, bool) {
-	s := a.settings.snapshot()
-	base := strings.TrimSpace(s.LLMBaseURL)
-	key := strings.TrimSpace(s.LLMKey)
-	model := strings.TrimSpace(s.LLMModel)
-	if base == "" || key == "" || model == "" {
+	o, ok := activeLLM(a.settings.snapshot())
+	if !ok {
 		return llm.Client{}, false
 	}
-	return llm.New(base, key, model), true
+	base := strings.TrimSpace(o.Provider.BaseURL)
+	key := strings.TrimSpace(o.Provider.Key)
+	if base == "" || key == "" {
+		return llm.Client{}, false
+	}
+	return llm.New(base, key, o.Model), true
 }
 
 // setStatus records a one-off status message and refreshes the UI.

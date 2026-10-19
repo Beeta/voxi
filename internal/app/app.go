@@ -33,7 +33,8 @@ type app struct {
 	mindmapping  map[string]bool
 	asking       map[string]bool
 	status       string
-	verifyingLLM bool
+	verifyingLLM bool   // a verification of llmVerifyID is under way
+	llmVerifyID  string // the provider the message below is about
 	llmVerifyMsg string
 	llmVerifyOK  bool
 
@@ -53,6 +54,8 @@ type app struct {
 	showSettings    bool
 	confirmDel      bool
 	confirmDelAudio bool // dropping the audio while keeping the text
+	delProviderID   string // the LLM provider the delete confirmation is about
+	confirmDelProv  bool
 	pickingDir      bool // a recordings-directory dialog is open
 
 	// The recording row's context menu: which recording it is renaming or

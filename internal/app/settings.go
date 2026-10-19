@@ -12,17 +12,24 @@ import (
 )
 
 // Settings is the app's persisted configuration: which sources to capture,
-// where the recordings go, the ASR key, the single OpenAI-compatible LLM
-// endpoint, and the appearance.
+// where the recordings go, the ASR key, the saved OpenAI-compatible LLM
+// providers and which model is in use, and the appearance.
 type Settings struct {
 	Mic             bool   `json:"mic"`             // capture the microphone
 	System          bool   `json:"system"`          // capture the system output
 	RecordingsDir   string `json:"recordingsDir"`   // where the .m4a files go; empty = the downloads directory
 	ASRKey          string `json:"asrKey"`          // ASR api key
 	CloudflaredPath string `json:"cloudflaredPath"` // path to the cloudflared binary
-	LLMBaseURL      string `json:"llmBaseURL"`      // OpenAI-compatible chat/completions endpoint
-	LLMKey          string `json:"llmKey"`          // LLM api key
-	LLMModel        string `json:"llmModel"`        // model id
+	// LLMProviders are the saved endpoints and LLMActive the provider ×
+	// model in use; see activeLLM.
+	LLMProviders []LLMProvider `json:"llmProviders"`
+	LLMActive    LLMChoice     `json:"llmActive"`
+	// The single endpoint of settings files before 0.3.0: read once by
+	// migrateLLM, then kept mirroring the active choice (mirrorLegacyLLM)
+	// so an older build still works on the same file. Nothing else reads it.
+	LLMBaseURL string `json:"llmBaseURL"`
+	LLMKey     string `json:"llmKey"`
+	LLMModel   string `json:"llmModel"`
 	// Appearance is "light", "dark", or "system"; empty follows the system,
 	// which is also what a settings file written before this existed means.
 	Appearance string `json:"appearance"`
@@ -77,6 +84,7 @@ func openSettings() (*settingsStore, error) {
 	if err := json.Unmarshal(data, st.s); err != nil {
 		return nil, err
 	}
+	migrateLLM(st.s)
 	return st, nil
 }
 
@@ -99,6 +107,7 @@ func (st *settingsStore) update(fn func(*Settings)) {
 
 // saveLocked writes the file atomically (tmp + rename). The caller holds mu.
 func (st *settingsStore) saveLocked() {
+	mirrorLegacyLLM(st.s)
 	data, err := json.MarshalIndent(st.s, "", "  ")
 	if err != nil {
 		return
