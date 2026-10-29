@@ -7,6 +7,7 @@
 package audio
 
 import (
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -62,6 +63,8 @@ type sourceSamples struct {
 	// pause: the sources' small arrival skew would otherwise be left in the
 	// mixer and come out after the pause, ahead of the resumed audio.
 	flush bool
+	// silence is how many interleaved samples to write as silence.
+	silence int
 }
 
 // encoder streams mixed audio to a file, encoding frames as they arrive
@@ -81,10 +84,19 @@ type Recorder struct {
 	err     error
 	path    string
 	sources []Source
-	// The time recorded is recorded plus, while recording, the span since
-	// started: pauses add nothing to it.
-	started  time.Time
+	// The time recorded is the audio actually written: every buffer the
+	// encoder takes adds to it, and so does every silence the recorder
+	// fills for a broken capture (see monitor). Pauses add nothing. It is
+	// not wall time, so a capture the system quietly stopped does not
+	// inflate it: what the file holds is what the UI and the library show.
 	recorded time.Duration
+	// written is when the encode goroutine last wrote a span while
+	// recording; monitor watches it to see a capture stop delivering.
+	written time.Time
+	// base is the audio length a reopened capture continues from.
+	base time.Duration
+	// silentTotals is how much of the recording was made up as silence.
+	silentTotals time.Duration
 
 	// enc encodes mixed audio to the file. samples carries delivered
 	// buffers to the encode goroutine while recording (nil otherwise), and
@@ -102,6 +114,11 @@ type Recorder struct {
 	// newEncoder opens the output file; tests swap it for one that keeps the
 	// samples in memory.
 	newEncoder func(path string, bitrate int) (encoder, error)
+	// stallAfter is how long recording may go without audio being written
+	// before the capture is taken to be broken: the system can stop a stream
+	// without telling the app (a disk-space purge did exactly that), and the
+	// recording would then go on empty. Zero uses the default.
+	stallAfter time.Duration
 }
 
 // capture is the platform-specific audio capture behind the Recorder.
@@ -120,24 +137,45 @@ func NewRecorder() *Recorder {
 	return &Recorder{state: StateIdle, platform: newCapture(), newEncoder: newAACEncoder}
 }
 
+// defaultStallAfter is how long a recording may write nothing before its
+// capture is taken to have broken.
+const defaultStallAfter = 5 * time.Second
+
+// stallTimeout is stallAfter, or the default.
+func (r *Recorder) stallTimeout() time.Duration {
+	if r.stallAfter > 0 {
+		return r.stallAfter
+	}
+	return defaultStallAfter
+}
+
 // available reports whether audio can be captured on this platform.
 func (r *Recorder) Available() (bool, string) { return r.platform.available() }
 
 // snapshot returns the Recorder's state for the UI, without holding the
-// lock while the UI draws. elapsed is the time recorded, pauses left out,
-// and holds the final length once the recording stops.
+// lock while the UI draws. elapsed is the audio written since the last
+// Resume, and the whole recording once it stops: the file's length.
 func (r *Recorder) Snapshot() (state State, elapsed time.Duration, path string, err error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.state, r.elapsedLocked(), r.path, r.err
 }
 
-// elapsedLocked is the time recorded so far. The caller holds mu.
+// elapsedLocked is the audio written since the last Resume, or all of it
+// once stopped. The caller holds mu.
 func (r *Recorder) elapsedLocked() time.Duration {
-	if r.state == StateRecording {
-		return r.recorded + time.Since(r.started)
+	if r.state == StateIdle || r.state == StateStopping {
+		return r.recorded
 	}
-	return r.recorded
+	return r.recorded - r.base
+}
+
+// Silence is how much of the recording was made up with silence, because
+// the system stopped delivering audio and capture had to be restarted.
+func (r *Recorder) Silence() time.Duration {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.silentTotals
 }
 
 // start captures the sources, encoding to path until stopped.
@@ -151,7 +189,7 @@ func (r *Recorder) Start(sources []Source, path string) {
 	r.err = nil
 	r.path = path
 	r.sources = sources
-	r.recorded = 0
+	r.recorded, r.base, r.silentTotals = 0, 0, 0
 	r.mu.Unlock()
 	r.ping()
 
@@ -186,9 +224,11 @@ func (r *Recorder) Start(sources []Source, path string) {
 		}
 
 		r.mu.Lock()
-		r.state, r.started = StateRecording, time.Now()
+		r.state = StateRecording
+		r.written = time.Now()
 		r.mu.Unlock()
 		r.ping()
+		go r.monitor()
 		r.tick()
 	}()
 }
@@ -214,6 +254,8 @@ func (r *Recorder) deliver(src Source, ch chunk) {
 	select {
 	case r.samples <- sourceSamples{src: src, samples: ch.samples}:
 	default:
+		// The encoder could not keep up with this buffer. It is lost; the
+		// stall watch writes the time back as silence.
 	}
 }
 
@@ -224,24 +266,32 @@ func (r *Recorder) encodeLoop(sources []Source, enc encoder, sc <-chan sourceSam
 	defer close(done)
 	m := newMixer(sources)
 	for s := range sc {
+		if s.silence > 0 {
+			r.write(enc, make([]float32, s.silence))
+			continue
+		}
 		if s.flush {
 			if out := m.flush(); out != nil {
-				r.encode(enc, out)
+				r.write(enc, out)
 			}
 			continue
 		}
 		m.add(s.src, s.samples)
 		if out := m.drain(); out != nil {
-			r.encode(enc, out)
+			r.write(enc, out)
 		}
 	}
 	if out := m.flush(); out != nil {
-		r.encode(enc, out)
+		r.write(enc, out)
 	}
 }
 
-// encode writes one mixed span, keeping the first error for the UI.
-func (r *Recorder) encode(enc encoder, out []float32) {
+// write writes one span and adds it to the time recorded: what is in the
+// file is what the recorder says it has.
+func (r *Recorder) write(enc encoder, out []float32) {
+	if len(out) < channels {
+		return
+	}
 	if err := enc.write(out); err != nil {
 		r.mu.Lock()
 		if r.err == nil {
@@ -249,6 +299,10 @@ func (r *Recorder) encode(enc encoder, out []float32) {
 		}
 		r.mu.Unlock()
 	}
+	r.mu.Lock()
+	r.recorded += time.Duration(float64(len(out)/channels) / sampleRate * float64(time.Second))
+	r.written = time.Now()
+	r.mu.Unlock()
 }
 
 // stop ends capture, finishes encoding and closes the file. A paused
@@ -259,7 +313,6 @@ func (r *Recorder) Stop() {
 		r.mu.Unlock()
 		return
 	}
-	r.recorded = r.elapsedLocked()
 	r.state = StateStopping
 	sc, done, enc := r.samples, r.done, r.enc
 	r.samples = nil
@@ -292,7 +345,6 @@ func (r *Recorder) Pause() {
 		r.mu.Unlock()
 		return
 	}
-	r.recorded = r.elapsedLocked()
 	r.state = StatePaused
 	if r.samples != nil {
 		select {
@@ -311,7 +363,9 @@ func (r *Recorder) Resume() {
 		r.mu.Unlock()
 		return
 	}
-	r.state, r.started = StateRecording, time.Now()
+	r.state = StateRecording
+	r.written = time.Now()
+	r.base = r.recorded // the audio kept from before the pause
 	r.mu.Unlock()
 	r.ping()
 }
@@ -347,6 +401,87 @@ func (r *Recorder) tick() {
 		}
 		if st == StateRecording {
 			r.ping()
+		}
+	}
+}
+
+// monitor watches a recording whose capture may have stopped silently:
+// while recording, if no audio has been written for stallTimeout, the
+// capture is stopped and started again into the same file, and the missing
+// span is written as silence so the file keeps real time. It ends with the
+// recording.
+func (r *Recorder) monitor() {
+	period := r.stallTimeout() / 5
+	if period < 50*time.Millisecond {
+		period = 50 * time.Millisecond
+	}
+	t := time.NewTicker(period)
+	defer t.Stop()
+	for range t.C {
+		r.mu.Lock()
+		switch r.state {
+		case StateIdle, StateStopping:
+			r.mu.Unlock()
+			return
+		case StatePaused:
+			// Silent by design, not broken: restart the clock.
+			r.written = time.Now()
+			r.mu.Unlock()
+			continue
+		}
+		gap := time.Since(r.written)
+		sources := r.sources
+		if gap < r.stallTimeout() {
+			r.mu.Unlock()
+			continue
+		}
+		r.written = time.Now() // one recovery per stall, however often seen
+		r.mu.Unlock()
+		r.recoverCapture(sources, gap)
+	}
+}
+
+// recoverCapture starts the capture over after it stopped delivering,
+// writing gap of silence for what was missed.
+func (r *Recorder) recoverCapture(sources []Source, gap time.Duration) {
+	dbg.note("capture stalled for %v: restarting it", gap.Truncate(time.Millisecond))
+	r.platform.stop() // no deliveries from the old session from here
+	if err := r.platform.start(sources, r.deliver); err != nil {
+		r.mu.Lock()
+		if r.err == nil {
+			r.err = fmt.Errorf("录音曾被系统中断，自动恢复失败：%w", err)
+		}
+		r.mu.Unlock()
+		r.ping()
+		return
+	}
+	r.pushSilence(gap)
+	r.mu.Lock()
+	r.written = time.Now()
+	r.mu.Unlock()
+	r.ping()
+}
+
+// pushSilence has n of silence written, standing in for audio that never
+// arrived: the recording keeps real time, and it counts as recorded.
+func (r *Recorder) pushSilence(n time.Duration) {
+	frames := int(n.Seconds() * sampleRate)
+	r.mu.Lock()
+	sc := r.samples
+	r.mu.Unlock()
+	if sc == nil || frames <= 0 {
+		return
+	}
+	r.mu.Lock()
+	r.silentTotals += n
+	r.mu.Unlock()
+	for frames > 0 {
+		k := min(frames, sampleRate) // a second at a time, never a huge buffer
+		select {
+		case sc <- sourceSamples{silence: k * channels}:
+			frames -= k
+		default:
+			return // the encoder is behind; it is delivering, so not a stall
 		}
 	}
 }

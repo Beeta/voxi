@@ -47,6 +47,7 @@ type app struct {
 	llmFetchErr map[string]string
 
 	recording bool
+	recWarn   string // a note about the recording under way, as a quiet stretch or a restart
 
 	// UI-thread-only view state (no lock needed).
 	tab             int

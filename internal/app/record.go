@@ -27,6 +27,7 @@ func (a *app) startRecording() {
 	}
 	a.mu.Lock()
 	a.recording = true
+	a.recWarn = lowDiskWarning(filepath.Dir(filepath.Join(recordingsDir(set), "x")))
 	a.mu.Unlock()
 	a.rec.Start(srcs, filepath.Join(recordingsDir(set), defaultFilename()))
 	a.ping()
@@ -51,6 +52,7 @@ func (a *app) stopRecording() {
 		}
 		a.mu.Lock()
 		a.recording = false
+		a.recWarn = ""
 		a.mu.Unlock()
 		if path != "" {
 			if _, err := os.Stat(path); err == nil {
@@ -195,4 +197,22 @@ func audioGone(rec store.Recording) string {
 // defaultFilename is a timestamped name for a new recording.
 func defaultFilename() string {
 	return fmt.Sprintf("recording-%s.m4a", time.Now().Format("20060102-150405"))
+}
+
+// diskFloor is how much free space recording wants: below it macOS starts
+// purging caches under disk pressure, which stops every capture on the
+// machine — this app's recording among them. A variable so a test can put
+// the threshold on either side of the disk it runs on.
+var diskFloor int64 = 15 << 30
+
+// lowDiskWarning is what to tell the user before recording into dir, or ""
+// when there is room. It is a warning, not a refusal: the recording still
+// starts, with the stall watch behind it.
+func lowDiskWarning(dir string) string {
+	free, err := freeDisk(dir)
+	if err != nil || free >= diskFloor {
+		return ""
+	}
+	return fmt.Sprintf("磁盘仅剩 %.1f GB：系统清理缓存时可能中断录音（已自动看护，仍建议先腾空间）。",
+		float64(free)/(1<<30))
 }

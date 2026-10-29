@@ -12,6 +12,7 @@ func (a *app) recordControl(c *ui.Context) {
 	st, elapsed, _, err := a.rec.Snapshot()
 	a.mu.Lock()
 	recording := a.recording
+	warn := a.recWarn
 	a.mu.Unlock()
 	switch {
 	case st == audio.StateRecording || st == audio.StatePaused:
@@ -30,6 +31,9 @@ func (a *app) recordControl(c *ui.Context) {
 			})
 			if paused {
 				ui.Text(c, "暂停中不录入声音（系统录制指示仍会亮着）").FontSize(11).TextColor(muted)
+			}
+			if warn != "" {
+				ui.Text(c, warn).FontSize(11).TextColor(recRed)
 			}
 			ui.Row(c).Gap(8).Children(func() {
 				label := "暂停"

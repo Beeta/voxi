@@ -498,6 +498,10 @@ func (c *darwinCapture) start(sources []Source, deliver func(Source, chunk)) err
 	// Audio-only: capture a tiny screen we never read, to keep overhead low.
 	send(cfg, "setWidth:", 2)
 	send(cfg, "setHeight:", 2)
+	// One frame a second instead of the default 60: the screen is never
+	// read, and every frame the system produces without an output to take
+	// it is dropped with a log line (thousands a minute).
+	send(cfg, "setMinimumFrameInterval:", uintptr(unsafe.Pointer(&CMTime{Value: 1, Timescale: 1})))
 	send(cfg, "setCapturesAudio:", boolArg(wantSystem))
 	send(cfg, "setSampleRate:", uintptr(sampleRate))
 	send(cfg, "setChannelCount:", uintptr(channels))

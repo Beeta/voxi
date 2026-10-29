@@ -1,7 +1,7 @@
 {
   "name": "有听有记Voxi",
   "identifier": "dev.beeta.voxi",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "icon": "logo/icon.png",
   "main": "./cmd/voxi",
   "out": "build",

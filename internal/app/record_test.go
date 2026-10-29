@@ -2,6 +2,7 @@ package app
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -66,5 +67,25 @@ func TestPauseAndResumeFromTheControl(t *testing.T) {
 	waitRec(t, a, tt, audio.StateIdle)
 	if tt.HasText("已暂停") {
 		t.Error("the control still says paused after stopping")
+	}
+}
+
+// TestLowDiskWarning: a disk with room gets no warning; a nearly full one
+// gets a note naming the risk. The second case is exercised where it can
+// be, by handing lowDiskWarning a threshold the disk is under.
+func TestLowDiskWarning(t *testing.T) {
+	dir := t.TempDir()
+	free, err := freeDisk(dir)
+	if err != nil {
+		t.Skip("no free-space check here")
+	}
+	if free >= diskFloor && lowDiskWarning(dir) != "" {
+		t.Error("a disk with room still warns")
+	}
+	old := diskFloor
+	diskFloor = free * 2 // as if almost no room were left
+	defer func() { diskFloor = old }()
+	if w := lowDiskWarning(dir); !strings.Contains(w, "磁盘仅剩") || !strings.Contains(w, "自动看护") {
+		t.Errorf("the warning is %q", w)
 	}
 }
