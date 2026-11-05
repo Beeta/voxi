@@ -40,7 +40,7 @@ func TestRowContextMenu(t *testing.T) {
 	if err := tt.RightClick("第二次"); err != nil {
 		t.Fatal(err)
 	}
-	if got := tt.Menu(); !slices.Equal(got, []string{"重命名", "在访达中显示", "-", "删除音频文件（保留文字）", "删除条目"}) {
+	if got := tt.Menu(); !slices.Equal(got, []string{"重命名", "标签", "在访达中显示", "-", "删除音频文件（保留文字）", "删除条目"}) {
 		t.Fatalf("the row menu is %q", got)
 	}
 

@@ -58,13 +58,13 @@ func TestRowMenuOffersBothDeletes(t *testing.T) {
 	}{
 		{
 			"with audio", true,
-			[]string{"重命名", "在访达中显示", "-", "删除音频文件（保留文字）", "删除条目"},
+			[]string{"重命名", "标签", "在访达中显示", "-", "删除音频文件（保留文字）", "删除条目"},
 		},
 		{
 			// Nothing to show in the Finder and nothing to delete: the menu
 			// leads only to the delete that takes the entry.
 			"without audio", false,
-			[]string{"重命名", "-", "删除条目"},
+			[]string{"重命名", "标签", "-", "删除条目"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

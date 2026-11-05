@@ -124,6 +124,7 @@ func (a *app) addImported(files []string) {
 		selected = a.lib.Add(importName(src), dst, dur).ID
 	}
 	if selected != "" {
+		a.showAll() // as for a new recording: untagged, it would be hidden
 		a.mu.Lock()
 		a.selected = selected
 		a.mu.Unlock()

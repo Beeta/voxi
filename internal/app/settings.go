@@ -38,6 +38,11 @@ type Settings struct {
 	// Appearance is "light", "dark", or "system"; empty follows the system,
 	// which is also what a settings file written before this existed means.
 	Appearance string `json:"appearance"`
+	// Tags are the user's tags, in the order they were made; recordings
+	// carry their IDs. TagFilter is the tag the sidebar shows the
+	// recordings of, empty for all, kept so the next launch opens on it.
+	Tags      []Tag  `json:"tags,omitempty"`
+	TagFilter string `json:"tagFilter,omitempty"`
 }
 
 // recordingsDir returns where new recordings are written: the configured

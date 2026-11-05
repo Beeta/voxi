@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -123,6 +124,10 @@ type Recording struct {
 	Chat          []ChatMessage `json:"chat,omitempty"`
 	ChatArchive   []ChatSession `json:"chatArchive,omitempty"` // newest first
 	Notes         string        `json:"notes,omitempty"`
+	// Tags are the IDs of the tags the recording carries, any number of
+	// them, in the order they were put on; the tags themselves, with their
+	// names, live in the settings.
+	Tags []string `json:"tags,omitempty"`
 }
 
 // Store is the recording library and its JSON index on disk. It is safe for
@@ -438,6 +443,51 @@ func (s *Store) Remove(id string) {
 			return
 		}
 	}
+}
+
+// SetTagged puts tag on the recording, or takes it off. The slice is made
+// anew rather than edited in place: snapshots handed out earlier share it.
+func (s *Store) SetTagged(id, tag string, on bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r := s.find(id)
+	if r == nil || slices.Contains(r.Tags, tag) == on {
+		return
+	}
+	if on {
+		r.Tags = append(slices.Clip(r.Tags), tag)
+	} else {
+		r.Tags = withoutTag(r.Tags, tag)
+	}
+	s.saveLocked()
+}
+
+// RemoveTag takes tag off every recording carrying it, as when the tag
+// itself is deleted, and returns how many did.
+func (s *Store) RemoveTag(tag string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, r := range s.recs {
+		if slices.Contains(r.Tags, tag) {
+			r.Tags = withoutTag(r.Tags, tag)
+			n++
+		}
+	}
+	if n > 0 {
+		s.saveLocked()
+	}
+	return n
+}
+
+// withoutTag is tags without tag, in a slice of its own; nil when none are
+// left, so the field drops out of the file.
+func withoutTag(tags []string, tag string) []string {
+	out := slices.DeleteFunc(slices.Clone(tags), func(t string) bool { return t == tag })
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // DropAudio forgets a recording's audio, keeping everything else it holds.

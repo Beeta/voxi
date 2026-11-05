@@ -98,6 +98,17 @@ type app struct {
 	delRecID      string
 	delAudioID    string
 
+	// Tags: the sidebar's filter popup, the editor making or renaming tag
+	// tagEditID ("" for a new one, put on tagEditFor when that is set),
+	// and the delete confirmation.
+	tagMenuOpen   bool
+	tagEditOpen   bool
+	tagEditID     string
+	tagEditName   string
+	tagEditFor    string
+	confirmDelTag bool
+	delTagID      string
+
 	// Importing audio files: a chooser or copies are in flight, and what
 	// could not be taken, reported once the batch is done.
 	importing      bool

@@ -3,6 +3,7 @@ package store
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -245,5 +246,40 @@ func TestImportFileDoesNotOverwrite(t *testing.T) {
 	}
 	if b, err := os.ReadFile(dst); err != nil || string(b) != "imported" {
 		t.Errorf("the copy holds %q (%v), want the imported contents", b, err)
+	}
+}
+
+// TestTagsPersist covers putting tags on and taking them off: a recording
+// carries several, each once, and RemoveTag takes one off every recording
+// that has it. All of it survives reopening the library.
+func TestTagsPersist(t *testing.T) {
+	s, root := newTestStore(t)
+	a := s.Add("a", touch(t, filepath.Join(root, "a.m4a")), 1)
+	b := s.Add("b", touch(t, filepath.Join(root, "b.m4a")), 1)
+	s.SetTagged(a.ID, "work", true)
+	s.SetTagged(a.ID, "home", true)
+	s.SetTagged(a.ID, "work", true) // already on: no second copy
+	s.SetTagged(b.ID, "work", true)
+
+	s2, err := Open(s.path, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s2.Get(a.ID); !slices.Equal(got.Tags, []string{"work", "home"}) {
+		t.Fatalf("a reopened with tags %q", got.Tags)
+	}
+
+	if n := s2.RemoveTag("work"); n != 2 {
+		t.Errorf("RemoveTag reported %d recordings, want 2", n)
+	}
+	s2.SetTagged(a.ID, "home", false)
+	s3, err := Open(s.path, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{a.ID, b.ID} {
+		if got, _ := s3.Get(id); got.Tags != nil {
+			t.Errorf("%s still carries %q", id, got.Tags)
+		}
 	}
 }

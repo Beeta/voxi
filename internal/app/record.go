@@ -57,6 +57,9 @@ func (a *app) stopRecording() {
 		if path != "" {
 			if _, err := os.Stat(path); err == nil {
 				rec := a.lib.Add("录音 "+time.Now().Format("01-02 15:04"), path, elapsed.Seconds())
+				// The new recording carries no tag yet, so a filter would
+				// hide it the moment it is selected.
+				a.showAll()
 				a.mu.Lock()
 				a.selected = rec.ID
 				a.mu.Unlock()

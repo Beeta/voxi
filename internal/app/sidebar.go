@@ -1,6 +1,7 @@
 package app
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/egoist/mygo"
@@ -41,6 +42,7 @@ func (a *app) view(c *ui.Context) {
 	a.deleteConfirm(c)
 	a.dropAudioConfirm(c)
 	a.importFailureDialog(c)
+	a.tagDialogs(c)
 }
 
 func (a *app) sidebar(c *ui.Context) {
@@ -81,14 +83,44 @@ func (a *app) sidebar(c *ui.Context) {
 			})
 			return
 		}
+		set := a.settings.snapshot()
+		filter := activeFilter(set)
+		shown := filterRecs(recs, filter)
+		a.dropHiddenSelection(shown)
+		ui.Column(c).Padding(10, 10, 0).Children(func() { a.tagFilter(c, set, recs, filter) })
+		if len(shown) == 0 {
+			ui.Column(c).Grow(1).Center().Padding(20).Gap(6).Children(func() {
+				ui.Text(c, "这个标签下还没有录音").FontSize(13).TextColor(muted)
+				ui.Text(c, "在录音上右键 → 标签，即可打上").FontSize(12).TextColor(muted)
+			})
+			return
+		}
 		ui.Scroll(c).Grow(1).Children(func() {
 			ui.Column(c).Padding(10).Gap(6).Children(func() {
-				for i := range recs {
-					a.fileRow(c, recs[i])
+				for i := range shown {
+					a.fileRow(c, shown[i], set.Tags)
 				}
 			})
 		})
 	})
+}
+
+// dropHiddenSelection clears the selection when the filter hides it, and
+// stops its playback with it: the detail pane would otherwise show a
+// recording the list no longer has, and its audio would play on with no
+// player to stop it.
+func (a *app) dropHiddenSelection(shown []store.Recording) {
+	a.mu.Lock()
+	id := a.selected
+	a.mu.Unlock()
+	if id == "" || slices.ContainsFunc(shown, func(r store.Recording) bool { return r.ID == id }) {
+		return
+	}
+	a.mu.Lock()
+	a.selected = ""
+	a.mu.Unlock()
+	a.closePlayerFor(id)
+	a.editSeg = -1
 }
 
 // sourceSummary shows which capture sources are enabled; they are configured
@@ -122,7 +154,7 @@ func (a *app) chosen() int {
 	return n
 }
 
-func (a *app) fileRow(c *ui.Context, rec store.Recording) {
+func (a *app) fileRow(c *ui.Context, rec store.Recording, tags []Tag) {
 	a.mu.Lock()
 	selected := a.selected == rec.ID
 	a.mu.Unlock()
@@ -147,6 +179,7 @@ func (a *app) fileRow(c *ui.Context, rec store.Recording) {
 			}
 		})
 		ui.Text(c, recMetaStatus(rec, a.asrStatus(rec.ID))).FontSize(11).TextColor(muted)
+		recTagChips(c, rec, tags)
 	})
 	if row.Clicked() {
 		a.selectRec(rec.ID)
@@ -163,6 +196,7 @@ func (a *app) fileRow(c *ui.Context, rec store.Recording) {
 		if m.Item("重命名").Chosen() {
 			a.renameRecOpen, a.renameRecID, a.renameRecName = true, rec.ID, rec.Name
 		}
+		a.tagSubmenu(m, rec, tags)
 		if audio && m.Item("在访达中显示").Chosen() {
 			mygo.Shell.ShowItemInFolder(rec.File)
 		}
