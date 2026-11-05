@@ -74,17 +74,19 @@ func (a *app) transcriptView(c *ui.Context, rec store.Recording) {
 	// just the transcript, or what stands in for it before there is one.
 	switch {
 	case transcribing:
-		a.asrSteps(c, prog, true)
+		a.scrollPage(c, "tr", func() { a.asrSteps(c, prog, true) })
 	case errMsg != "" && hasProg && rec.Transcript == nil:
 		// A failed run keeps its steps on screen, so it is plain which one
 		// it was; 开始识别 below tries again.
-		a.asrSteps(c, prog, false)
+		a.scrollPage(c, "tr", func() { a.asrSteps(c, prog, false) })
 	case rec.Transcript == nil:
-		ui.Column(c).Padding(16).Radius(10).Background(cardBg).Gap(8).Children(func() {
-			ui.Text(c, "尚未识别。点击底部的「开始识别」生成带时间线的文字。").FontSize(13).TextColor(muted)
-			if errMsg != "" {
-				ui.Text(c, "⚠ "+errMsg).FontSize(12).TextColor(recRed).Selectable()
-			}
+		a.scrollPage(c, "tr", func() {
+			ui.Column(c).Padding(16).Radius(10).Background(cardBg).Gap(8).Children(func() {
+				ui.Text(c, "尚未识别。点击底部的「开始识别」生成带时间线的文字。").FontSize(13).TextColor(muted)
+				if errMsg != "" {
+					ui.Text(c, "⚠ "+errMsg).FontSize(12).TextColor(recRed).Selectable()
+				}
+			})
 		})
 	default:
 		a.segments(c, rec)
@@ -145,13 +147,17 @@ func (a *app) segments(c *ui.Context, rec store.Recording) {
 	// Timestamps seek, so they are only worth clicking while there is
 	// something to seek in.
 	seekable := hasAudio(rec)
-	ui.Column(c).Gap(2).Children(func() {
-		for i := range rec.Transcript.Segments {
-			seg := rec.Transcript.Segments[i]
-			active := seekable && cur >= seg.Start && cur < seg.End
-			a.segmentRow(c, rec, i, seg, active, seekable, speakers[tints[seg.Speaker]%speakerTintCount])
-		}
-	})
+	// A virtual list rather than a column in a scroll: an hour-long meeting
+	// is two thousand segments, and building, laying out and painting every
+	// one of them each frame made scrolling stutter. The list builds only
+	// the rows in view. It is keyed by the recording, so each one keeps its
+	// own place and row heights.
+	segs := rec.Transcript.Segments
+	ui.List(c.Key("tr-"+rec.ID), nil, len(segs), func(i int) {
+		seg := segs[i]
+		active := seekable && cur >= seg.Start && cur < seg.End
+		a.segmentRow(c, rec, i, seg, active, seekable, speakers[tints[seg.Speaker]%speakerTintCount])
+	}).Grow(1).Padding(20, 32).Gap(2)
 }
 
 // speakerTintIndexes numbers a transcript's speakers in the order they first

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -117,5 +118,48 @@ func TestSegmentEditorEndsOnBlurAndEscape(t *testing.T) {
 	tt.Frame()
 	if a.editSeg != -1 {
 		t.Errorf("Escape left editor %d open, want none", a.editSeg)
+	}
+}
+
+// TestLongTranscriptBuildsOnlyRowsInView keeps a long transcript a virtual
+// list. Built as a column, every one of an hour's two thousand segments was
+// built, laid out and painted each frame, and scrolling stuttered. The last
+// segment is not built until it is scrolled to, and once there it still
+// edits as any other does.
+func TestLongTranscriptBuildsOnlyRowsInView(t *testing.T) {
+	dir := t.TempDir()
+	lib := openTestLib(t, dir)
+	rec := lib.Add("会议", filepath.Join(dir, "m.m4a"), 60)
+	segs := make([]store.Segment, 2000)
+	for i := range segs {
+		segs[i] = store.Segment{Start: float64(i * 3), End: float64(i*3 + 3), Speaker: "甲", Text: fmt.Sprintf("第%d句。", i)}
+	}
+	lib.SetTranscript(rec.ID, &store.Transcript{Segments: segs})
+	set := &settingsStore{path: filepath.Join(dir, "settings.json"), s: &Settings{}}
+	a := newApp(lib, set, audio.NewRecorder())
+	a.selected, a.tab = rec.ID, 0
+
+	tt := ui.NewTester(a.view, 968, 704)
+	tt.Frame()
+	tt.Frame()
+	if !tt.HasText("第0句。") {
+		t.Skip("the transcript did not render")
+	}
+	if tt.HasText("第1999句。") {
+		t.Fatal("the last segment was built while the top of the transcript showed")
+	}
+	for range 2000 {
+		tt.Scroll(600, 400, 0, 100)
+		tt.Frame()
+	}
+	if err := tt.Click("第1999句。"); err != nil {
+		t.Fatalf("the last segment is not reachable by scrolling: %v", err)
+	}
+	tt.Frame()
+	tt.Frame()
+	tt.Type("改")
+	tt.Frame()
+	if got := segmentText(t, lib, rec.ID, 1999); got != "第1999句。改" {
+		t.Errorf("editing the last segment saved %q", got)
 	}
 }

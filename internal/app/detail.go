@@ -37,7 +37,7 @@ func (a *app) detail(c *ui.Context) {
 			case 4:
 				a.notesView(c, rec)
 			default:
-				a.scrollPage(c, "tr", func() { a.transcriptView(c, rec) })
+				a.transcriptView(c, rec)
 			}
 		})
 		// The player is the pane's last row, under the tab body rather than
