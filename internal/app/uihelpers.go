@@ -119,7 +119,75 @@ var (
 	iconCross        = icon(`<path d="M18 6 6 18M6 6l12 12"/>`)
 	iconCircle       = icon(`<circle cx="12" cy="12" r="7"/>`)
 	iconAlert        = icon(`<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/>`)
+	// The settings pages' icons: 语音识别 and 大模型.
+	iconMic     = icon(`<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>`)
+	iconSparkle = icon(`<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16v4M17 18h4"/>`)
 )
+
+// hoverFade is how a control's fill follows the pointer: quick enough to
+// answer at once, long enough to not flicker as the pointer crosses a list.
+var hoverFade = ui.Animation{Duration: 120 * time.Millisecond}
+
+// pressPose makes b give a little while it is held, and spring back as it is
+// let go, as a button in the system's apps does.
+func pressPose(b ui.Element) {
+	pose := ui.Pose{}
+	if b.Pressed() {
+		pose.Scale = 0.96
+	}
+	b.AnimatePose(pose, ui.Snappy)
+}
+
+// secondaryButton is a quiet button beside a setting: a veil of fill that
+// deepens under the pointer, and gives as it is pressed.
+func secondaryButton(c *ui.Context, key, label string) ui.Element {
+	b := ui.ButtonBase(c.Key(key)).Padding(5, 12).Radius(7).Center().Border(1, line).Label(label)
+	fill := hover
+	if b.Hovered() {
+		fill = press
+	}
+	b.Background(b.AnimateColor("bg", fill, hoverFade))
+	pressPose(b)
+	b.Children(func() { ui.Text(c, label).FontSize(13).FontWeight(500).TextColor(ink).SingleLine() })
+	return b
+}
+
+// segmented is a segmented control as AppKit draws one: segments of one
+// width in a small sunken track, the one chosen raised on a capsule that
+// slides to the next as the choice changes. It reports whether the user
+// chose another, *selected already holding it.
+func segmented(c *ui.Context, key string, selected *int, labels ...string) bool {
+	const height, inset, radius = 26, 2, 7
+	width := float32(0)
+	for _, l := range labels {
+		w, _ := c.MeasureText(0, ui.Span{Text: l, Size: 12.5, Weight: 500})
+		width = max(width, w+24)
+	}
+	dark := c.Theme().Dark
+	capsule := ui.Hex("#ffffff")
+	if dark {
+		capsule = ui.RGBA(255, 255, 255, 0.2)
+	}
+	before := *selected
+	parts := ui.SegmentedBase(c.Key(key), selected, len(labels))
+	at := parts.Track.AnimateTo("at", float32(*selected), ui.Animation{Spring: ui.SpringOptions{Duration: 280 * time.Millisecond, Bounce: 0.08}})
+	parts.Track.Height(height).Padding(inset).Radius(radius).Background(press).Draw(func(p *ui.Painter, r ui.Rect) {
+		pill := ui.Rect{X: r.X + inset + at*width, Y: r.Y + inset, W: width, H: r.H - 2*inset}
+		if !dark {
+			p.Shadow(pill, radius-1, 0, 0.5, 1, 0, ui.RGBA(0, 0, 0, 0.2))
+			p.Shadow(pill, radius-1, 0, 1, 3, 0, ui.RGBA(0, 0, 0, 0.06))
+		}
+		p.Fill(pill, capsule, radius-1)
+	}).Children(func() {
+		for i, l := range labels {
+			seg := parts.Segment(i).Width(width).Height(height - 2*inset).Center().Radius(radius - 1).Label(l)
+			seg.Children(func() { ui.Text(c, l).FontSize(12.5).FontWeight(500).TextColor(ink).SingleLine() })
+		}
+	})
+	// The control writes a click through selected before it returns, so a
+	// change shows as soon as it is built.
+	return *selected != before
+}
 
 // disclosure is the chevron of a section that folds: pointing down while
 // it is open, to the right while it is shut.

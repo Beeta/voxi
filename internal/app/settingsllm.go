@@ -9,18 +9,6 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// fieldInput is a labeled single-line input.
-func (a *app) fieldInput(c *ui.Context, key, label, val string, set func(string)) {
-	ui.Row(c.Key(key)).Gap(10).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, label).FontSize(13).TextColor(muted).Width(70)
-		v := val
-		ti := ui.TextInput(c.Key(key+"-i"), &v).Grow(1).FontSize(13).TextColor(ink)
-		if ti.Changed() {
-			set(v)
-		}
-	})
-}
-
 // endpointHint shows the URL the LLM client will actually request for the
 // configured base URL, so a missing or extra /v1 is visible here rather than
 // as a bare 404 from 验证连接.
@@ -38,8 +26,12 @@ func (a *app) endpointHint(c *ui.Context, base string) {
 // Each provider is one summary line until it is opened for editing, one at a
 // time, so the page stays short however many there are.
 func (a *app) llmSettings(c *ui.Context, s Settings) {
-	a.settingsSection(c, "大模型配置", func() {
+	settingsGroup(c, "set-llm-use", "", func() {
 		a.llmPicker(c, s)
+	}, func() {
+		ui.Text(c, "摘要、脑图和问答都用这里选中的模型；各页底部也能临时切换。").FontSize(11.5).TextColor(muted)
+	})
+	settingsGroup(c, "set-llm-prov", "供应商", func() {
 		for _, p := range s.LLMProviders {
 			if p.ID == a.llmOpenProv {
 				a.providerCard(c, p)
@@ -47,8 +39,12 @@ func (a *app) llmSettings(c *ui.Context, s Settings) {
 				a.providerRow(c, p)
 			}
 		}
-		add := ui.ButtonBase(c.Key("llm-add")).Padding(8, 16).Radius(8).Center().Background(cardBg2).Border(1, line)
-		add.Children(func() { ui.Text(c, "+ 添加供应商").FontSize(13).FontWeight(600).TextColor(ink) })
+		add := ui.ButtonBase(c.Key("llm-add")).Padding(0, 14).MinHeight(40).Gap(6).AlignItems(ui.Center).Label("+ 添加供应商")
+		add.Background(add.AnimateColor("bg", controlFill(add, ui.Transparent, hover), hoverFade))
+		add.Children(func() {
+			ui.Icon(c, iconPlus).FontSize(13).TextColor(accent)
+			ui.Text(c, "添加供应商").FontSize(13).FontWeight(500).TextColor(accent)
+		})
 		if add.Clicked() {
 			id := newProviderID()
 			a.settings.update(func(st *Settings) {
@@ -56,7 +52,7 @@ func (a *app) llmSettings(c *ui.Context, s Settings) {
 			})
 			a.llmOpenProv = id
 		}
-	})
+	}, nil)
 	name := ""
 	if p := s.provider(a.delProviderID); p != nil {
 		name = p.Name
@@ -71,10 +67,9 @@ func (a *app) llmSettings(c *ui.Context, s Settings) {
 // llmPicker chooses the provider × model that summaries, mind maps and Q&A
 // use.
 func (a *app) llmPicker(c *ui.Context, s Settings) {
-	ui.Row(c.Key("llm-pick")).Gap(10).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, "使用模型").FontSize(13).TextColor(muted).Width(70)
+	settingsRow(c, "llm-pick", "使用模型", "", func() {
 		if !a.modelSelect(c, "llm-select", s) {
-			ui.Text(c, "还没有可选的模型：先添加供应商并填写模型。").FontSize(12).TextColor(muted)
+			ui.Text(c, "先添加供应商并填写模型").FontSize(12).TextColor(muted)
 		}
 	})
 }
@@ -144,12 +139,14 @@ func (a *app) providerRow(c *ui.Context, p LLMProvider) {
 	} else {
 		detail += " · 未填 Base URL"
 	}
-	row := ui.ButtonBase(c.Key("llm-" + p.ID + "-row")).Padding(10, 12).Radius(10).Border(1, line).Label(name)
-	row.Background(controlFill(row, cardBg, cardBg2))
+	row := ui.ButtonBase(c.Key("llm-"+p.ID+"-row")).Padding(10, 14).MinHeight(52).Label(name)
+	row.Background(row.AnimateColor("bg", controlFill(row, ui.Transparent, hover), hoverFade))
+	// A button centers what it holds; the line fills it instead, the name
+	// at the start and the chevron at the end.
 	row.Children(func() {
-		ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
-			ui.Column(c).Gap(2).Grow(1).Children(func() {
-				ui.Text(c, name).FontSize(14).TextColor(ink).SingleLine()
+		ui.Row(c).Grow(1).Gap(10).AlignItems(ui.Center).Children(func() {
+			ui.Column(c).Gap(2).Grow(1).MinWidth(0).Children(func() {
+				ui.Text(c, name).FontSize(13).FontWeight(500).TextColor(ink).SingleLine()
 				ui.Text(c, detail).FontSize(12).TextColor(muted).SingleLine()
 			})
 			if msg != "" {
@@ -159,7 +156,7 @@ func (a *app) providerRow(c *ui.Context, p LLMProvider) {
 					statusMark(c, iconCross, "连接失败", recRed)
 				}
 			}
-			ui.Text(c, "编辑").FontSize(12).TextColor(accent)
+			ui.Icon(c, iconChevronRight).FontSize(13).TextColor(muted)
 		})
 	})
 	if row.Clicked() {
@@ -197,65 +194,74 @@ func (a *app) providerCard(c *ui.Context, p LLMProvider) {
 		})
 	}
 	k := func(s string) string { return "llm-" + id + "-" + s }
-	ui.Column(c.Key(k("card"))).Gap(10).Padding(12, 12).Radius(10).Border(1, accent).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "编辑供应商").FontSize(13).FontWeight(600).TextColor(muted).Grow(1)
-			if toolButton(c, k("fold"), "收起", false).Clicked() {
+	// Open in place of its row, in the same group: its own fields divided as
+	// the group's rows are, and a tint marking which provider it is.
+	ui.Column(c.Key(k("card"))).Background(selBg.Alpha(0.35)).Children(func() {
+		ui.Row(c).Padding(10, 14, 4).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, "编辑供应商").FontSize(12).FontWeight(600).TextColor(muted).Grow(1)
+			if secondaryButton(c, k("fold"), "收起").Clicked() {
 				a.llmOpenProv = ""
 			}
 		})
-		a.fieldInput(c, k("name"), "名称", p.Name, func(v string) { edit(func(q *LLMProvider) { q.Name = v }) })
-		a.fieldInput(c, k("base"), "Base URL", p.BaseURL, func(v string) { edit(func(q *LLMProvider) { q.BaseURL = v }) })
-		a.endpointHint(c, p.BaseURL)
-		a.fieldInput(c, k("key"), "API Key", p.Key, func(v string) { edit(func(q *LLMProvider) { q.Key = v }) })
-		a.fieldInput(c, k("models"), "模型", joinModels(p.Models), func(v string) {
-			edit(func(q *LLMProvider) { q.Models = splitModels(v) })
+		ui.Column(c).Gap(1).Dividers(1, line).Children(func() {
+			settingsField(c, k("name"), "名称", p.Name, "", func(v string) { edit(func(q *LLMProvider) { q.Name = v }) })
+			settingsField(c, k("base"), "Base URL", p.BaseURL, "https://api.example.com/v1", func(v string) { edit(func(q *LLMProvider) { q.BaseURL = v }) })
+			settingsField(c, k("key"), "API Key", p.Key, "", func(v string) { edit(func(q *LLMProvider) { q.Key = v }) })
+			settingsField(c, k("models"), "模型", joinModels(p.Models), "逗号分隔，验证连接用第一个", func(v string) {
+				edit(func(q *LLMProvider) { q.Models = splitModels(v) })
+			})
 		})
-		ui.Text(c, "多个模型用逗号分隔；验证连接用第一个。也可以从接口拉取后点选。").FontSize(12).TextColor(muted)
-		a.fetchedModels(c, p)
-		ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
-			btn := ui.ButtonBase(c.Key(k("verify"))).Padding(8, 16).Radius(8).Center().Background(cardBg2).Border(1, line).Disabled(busy)
-			btn.Children(func() {
-				if verifying {
-					ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-						ui.Spinner(c)
-						ui.Text(c, "验证中…").FontSize(13).TextColor(muted)
-					})
-				} else {
-					ui.Text(c, "验证连接").FontSize(13).FontWeight(600).TextColor(ink)
+		ui.Column(c).Padding(6, 14, 12).Gap(10).Children(func() {
+			a.endpointHint(c, p.BaseURL)
+			a.fetchedModels(c, p)
+			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+				if busyButton(c, k("verify"), "验证连接", "验证中…", verifying, busy).Clicked() && !busy {
+					a.verifyLLM(id)
+				}
+				if busyButton(c, k("fetch"), "获取模型列表", "获取中…", fetching, fetching).Clicked() && !fetching {
+					a.fetchModels(id)
+				}
+				ui.Spacer(c)
+				del := ui.ButtonBase(c.Key(k("del"))).Padding(5, 12).Radius(7).Center().Label("删除")
+				del.Background(del.AnimateColor("bg", controlFill(del, ui.Transparent, recRed.Alpha(0.12)), hoverFade))
+				pressPose(del)
+				del.Children(func() { ui.Text(c, "删除").FontSize(13).FontWeight(500).TextColor(recRed) })
+				if del.Clicked() {
+					a.delProviderID, a.confirmDelProv = id, true
 				}
 			})
-			if !busy && btn.Clicked() {
-				a.verifyLLM(id)
-			}
-			fb := ui.ButtonBase(c.Key(k("fetch"))).Padding(8, 16).Radius(8).Center().Background(cardBg2).Border(1, line).Disabled(fetching)
-			fb.Children(func() {
-				if fetching {
-					ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-						ui.Spinner(c)
-						ui.Text(c, "获取中…").FontSize(13).TextColor(muted)
-					})
-				} else {
-					ui.Text(c, "获取模型列表").FontSize(13).FontWeight(600).TextColor(ink)
-				}
-			})
-			if !fetching && fb.Clicked() {
-				a.fetchModels(id)
-			}
-			del := ui.ButtonBase(c.Key(k("del"))).Padding(8, 16).Radius(8).Center().Border(1, line)
-			del.Children(func() { ui.Text(c, "删除").FontSize(13).TextColor(recRed) })
-			if del.Clicked() {
-				a.delProviderID, a.confirmDelProv = id, true
-			}
 			if msg != "" {
-				col := recRed
 				if ok {
-					col = okGreen
+					statusMark(c, iconCheck, msg, okGreen)
+				} else {
+					warnLine(c, msg).Selectable()
 				}
-				ui.Text(c, msg).FontSize(12).TextColor(col).Grow(1)
 			}
 		})
 	})
+}
+
+// busyButton is a secondaryButton that turns into a spinner and the words
+// for the work while working is true, and takes no clicks while off is.
+func busyButton(c *ui.Context, key, label, workingLabel string, working, off bool) ui.Element {
+	b := ui.ButtonBase(c.Key(key)).Padding(5, 12).Radius(7).Center().Border(1, line).Disabled(off).Label(label)
+	fill := hover
+	if b.Hovered() {
+		fill = press
+	}
+	b.Background(b.AnimateColor("bg", fill, hoverFade))
+	pressPose(b)
+	b.Children(func() {
+		if working {
+			ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+				ui.Spinner(c).Size(12, 12)
+				ui.Text(c, workingLabel).FontSize(13).TextColor(muted).SingleLine()
+			})
+			return
+		}
+		ui.Text(c, label).FontSize(13).FontWeight(500).TextColor(ink).SingleLine()
+	})
+	return b
 }
 
 // fetchedModels shows what 获取模型列表 brought back for p: a filter and a

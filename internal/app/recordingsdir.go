@@ -6,25 +6,18 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/Beeta/voxi/internal/store"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
-	"github.com/Beeta/voxi/internal/store"
 )
 
 // recordingsDirRow shows where new recordings are written and lets the user
 // pick another directory.
 func (a *app) recordingsDirRow(c *ui.Context, s Settings) {
-	ui.Column(c).Gap(6).Children(func() {
-		ui.Text(c, "录音存放位置").FontSize(14).TextColor(ink)
-		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, recordingsDir(s)).FontSize(12).TextColor(muted).Grow(1)
-			btn := ui.ButtonBase(c.Key("rec-dir")).Padding(6, 12).Radius(8).Center().Background(cardBg2).Border(1, line)
-			btn.Children(func() { ui.Text(c, "选择…").FontSize(13).TextColor(ink) })
-			if btn.Clicked() {
-				go a.chooseRecordingsDir()
-			}
-		})
-		ui.Text(c, "改到别的目录时可以选择把已有录音一起搬过去；不搬的话旧录音留在原处，仍可播放和识别。").FontSize(12).TextColor(muted)
+	settingsRow(c, "rec-dir-row", "录音存放位置", recordingsDir(s), func() {
+		if secondaryButton(c, "rec-dir", "选择…").Clicked() {
+			go a.chooseRecordingsDir()
+		}
 	})
 }
 

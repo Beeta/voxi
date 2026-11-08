@@ -4,9 +4,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Beeta/voxi/internal/audio"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
-	"github.com/Beeta/voxi/internal/audio"
 )
 
 // newSettingsApp is an app over a settings file under t.TempDir(), so a test
@@ -61,13 +61,14 @@ func TestSwitchRowSavesTheToggle(t *testing.T) {
 		a.recordSettings(c, set.snapshot())
 	}, width, 200)
 
-	// The switch is the right end of the row: the description names the row,
-	// and the switch sits past the text column that fills it.
+	// The switch is the right end of the row, inside the group's padding:
+	// the description names the row, and the switch sits past the text
+	// column that fills it.
 	row, ok := tt.Find("默认输入设备（麦克风、耳机麦）")
 	if !ok {
 		t.Fatal("the microphone row did not render")
 	}
-	tt.ClickAt(width-10, row.Y+row.H/2)
+	tt.ClickAt(width-34, row.Y+row.H/2)
 	if set.snapshot().Mic {
 		t.Error("clicking the microphone switch left it on")
 	}
@@ -112,21 +113,21 @@ func TestSettingsBodyFitsTheWindow(t *testing.T) {
 }
 
 // TestSettingsPages: the dialog shows one page at a time, switched by the
-// tabs over it, and the Q&A presets are not among them (they live on the
+// sidebar beside it, and the Q&A presets are not among them (they live on the
 // Q&A tab).
 func TestSettingsPages(t *testing.T) {
 	a, _ := newSettingsApp(t)
 	a.showSettings = true
 	tt := ui.NewTester(func(c *ui.Context) { a.settingsModal(c, 704) }, 968, 704)
 	tt.Frame()
-	if !tt.HasText("主题") || tt.HasText("大模型配置") {
+	if !tt.HasText("主题") || tt.HasText("使用模型") {
 		t.Fatalf("the first page shows %q", tt.Texts())
 	}
 	if err := tt.Click("大模型"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if !tt.HasText("大模型配置") || tt.HasText("主题") {
+	if !tt.HasText("使用模型") || tt.HasText("主题") {
 		t.Errorf("after 大模型 the dialog shows %q", tt.Texts())
 	}
 	if tt.HasText("问答预设") {
