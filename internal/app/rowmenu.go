@@ -30,7 +30,7 @@ func (a *app) renameRecModal(c *ui.Context) {
 					a.renameRecOpen = false
 				}
 				save := ui.ButtonBase(c.Key("rec-rename-save")).Padding(8, 16).Radius(8).Center().Background(accent)
-				save.Children(func() { ui.Text(c, "保存").FontSize(13).Bold().TextColor(onAccent) })
+				save.Children(func() { ui.Text(c, "保存").FontSize(13).FontWeight(600).TextColor(onAccent) })
 				if save.Clicked() || ti.Submitted() {
 					a.applyRecRename()
 				}

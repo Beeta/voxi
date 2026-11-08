@@ -82,8 +82,8 @@ func (a *app) summaryPrompt(c *ui.Context, rec store.Recording) {
 	ui.Column(c).Gap(10).Padding(16).Radius(10).Background(cardBg).Children(func() {
 		head := ui.Row(c).Gap(8).AlignItems(ui.Center).Cursor(ui.CursorPointer)
 		head.Children(func() {
-			ui.Text(c, triangle(open)).FontSize(12).TextColor(muted).Width(14)
-			ui.Text(c, "生成指令（可编辑）").FontSize(12).Bold().TextColor(muted).Grow(1)
+			ui.Row(c).Width(14).Children(func() { ui.Icon(c, disclosure(open)).FontSize(12).TextColor(muted) })
+			ui.Text(c, "生成指令（可编辑）").FontSize(12).FontWeight(600).TextColor(muted).Grow(1)
 		})
 		if head.Clicked() {
 			a.promptOpen[rec.ID] = !open
@@ -113,7 +113,7 @@ func (a *app) summaryBody(c *ui.Context, rec store.Recording) {
 	sm := rec.Summary
 	ui.Column(c).Gap(16).Children(func() {
 		if sm.Stale {
-			ui.Text(c, "⚠ 转写已更新，摘要可能过期，建议重新生成。").FontSize(12).TextColor(recRed)
+			warnLine(c, "转写已更新，摘要可能过期，建议重新生成。")
 		}
 		if len(sm.Highlights) == 0 && len(sm.Actions) == 0 {
 			a.markdown(c, rec.ID+":ov", sm.Overview)

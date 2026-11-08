@@ -28,7 +28,7 @@ func (a *app) asrSteps(c *ui.Context, p asr.Progress, running bool) {
 			if running {
 				ui.Spinner(c)
 			}
-			ui.Text(c, title+" · 已用时 "+formatClock(total)).FontSize(13).Bold().TextColor(col).Grow(1)
+			ui.Text(c, title+" · 已用时 "+formatClock(total)).FontSize(13).FontWeight(600).TextColor(col).Grow(1)
 		})
 		for i := range asr.StepNames {
 			a.asrStepRow(c, asr.Step(i), p, cur, running)
@@ -50,22 +50,30 @@ func (a *app) asrSteps(c *ui.Context, p asr.Progress, running bool) {
 // asrStepRow is one step: a mark, its name, its time and what it found.
 func (a *app) asrStepRow(c *ui.Context, s asr.Step, p asr.Progress, cur asr.Step, running bool) {
 	st := p.Steps[s]
-	mark, mc, nc := "○", muted, muted
+	mark, mc, nc := iconCircle, muted, muted
 	var took string
 	switch {
 	case st.Err != "":
-		mark, mc, nc = "✕", recRed, recRed
+		mark, mc, nc = iconCross, recRed, recRed
 		took = fmtSecs(st.Ended.Sub(st.Started))
 	case !st.Ended.IsZero():
-		mark, mc, nc = "✓", okGreen, ink
+		mark, mc, nc = iconCheck, okGreen, ink
 		took = fmtSecs(st.Ended.Sub(st.Started))
 	case !st.Started.IsZero() && running && s == cur:
-		mark, mc, nc = "⟳", accent, ink
+		mark, mc, nc = nil, accent, ink
 		took = formatClock(time.Since(st.Started))
 	}
 	ui.Column(c.Key("asr-step-" + strconv.Itoa(int(s)))).Gap(2).Children(func() {
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, mark).FontSize(13).TextColor(mc).Width(16)
+			// The step under way spins, as the header's does, rather than
+			// showing a still ⟳ that only looks like it is working.
+			ui.Row(c).Width(16).Center().Children(func() {
+				if mark == nil {
+					ui.Spinner(c).Size(13, 13)
+				} else {
+					ui.Icon(c, mark).FontSize(13).TextColor(mc)
+				}
+			})
 			ui.Text(c, asr.StepNames[s]).FontSize(13).TextColor(nc).Width(120)
 			ui.Text(c, took).FontSize(12).TextColor(muted).Width(56)
 			ui.Text(c, stepDetail(s, st, p)).FontSize(12).TextColor(muted).Grow(1).SingleLine()

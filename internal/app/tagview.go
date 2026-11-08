@@ -162,7 +162,7 @@ func (a *app) tagDialogs(c *ui.Context) {
 						save.Background(cardBg2)
 						fg = muted
 					}
-					save.Children(func() { ui.Text(c, "保存").FontSize(13).Bold().TextColor(fg) })
+					save.Children(func() { ui.Text(c, "保存").FontSize(13).FontWeight(600).TextColor(fg) })
 					if ok && (save.Clicked() || ti.Submitted()) && a.saveTag() {
 						a.tagEditOpen = false
 					}

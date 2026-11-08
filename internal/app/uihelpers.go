@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/egoist/mygo/ui"
 	"github.com/Beeta/voxi/internal/store"
+	"github.com/egoist/mygo/ui"
 )
 
 // Capture source display names, shared by the sidebar summary and the
@@ -40,7 +40,7 @@ func actionButton(c *ui.Context, key, label string, off bool) ui.Element {
 	}
 	b := ui.ButtonBase(c.Key(key)).Padding(8, 16).Radius(8).Center().Border(1, brd).Disabled(off)
 	b.Background(controlFill(b, cardBg2, cardBg3))
-	b.Children(func() { ui.Text(c, label).FontSize(12).Bold().TextColor(fg) })
+	b.Children(func() { ui.Text(c, label).FontSize(12).FontWeight(600).TextColor(fg) })
 	return b
 }
 
@@ -104,16 +104,53 @@ func icon(shapes string) *ui.SVG {
 }
 
 var (
-	iconCheck = icon(`<path d="M20 6 9 17l-5-5"/>`)
-	iconPlay  = icon(`<path d="M6 4l14 8-14 8z" fill="currentColor" stroke="none"/>`)
-	iconPause = icon(`<path d="M7 4v16M17 4v16"/>`)
-	iconText  = icon(`<path d="M4 6h16M4 12h16M4 18h10"/>`)
-	iconGear  = icon(`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>`)
-	iconPlus   = icon(`<path d="M12 5v14M5 12h14"/>`)
-	iconImport = icon(`<path d="M12 3v12M8 11l4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>`)
+	iconCheck       = icon(`<path d="M20 6 9 17l-5-5"/>`)
+	iconPlay        = icon(`<path d="M6 4l14 8-14 8z" fill="currentColor" stroke="none"/>`)
+	iconPause       = icon(`<path d="M7 4v16M17 4v16"/>`)
+	iconText        = icon(`<path d="M4 6h16M4 12h16M4 18h10"/>`)
+	iconGear        = icon(`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>`)
+	iconPlus        = icon(`<path d="M12 5v14M5 12h14"/>`)
+	iconImport      = icon(`<path d="M12 3v12M8 11l4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>`)
 	iconChevronDown = icon(`<path d="m6 9 6 6 6-6"/>`)
-	iconTrash  = icon(`<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/>`)
+	iconTrash       = icon(`<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/>`)
+	// The marks a status carries, drawn rather than typed: ✓ and ✕ come out
+	// of whatever font has them, at a weight and size of its own.
+	iconChevronRight = icon(`<path d="m9 6 6 6-6 6"/>`)
+	iconCross        = icon(`<path d="M18 6 6 18M6 6l12 12"/>`)
+	iconCircle       = icon(`<circle cx="12" cy="12" r="7"/>`)
+	iconAlert        = icon(`<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/>`)
 )
+
+// disclosure is the chevron of a section that folds: pointing down while
+// it is open, to the right while it is shut.
+func disclosure(open bool) *ui.SVG {
+	if open {
+		return iconChevronDown
+	}
+	return iconChevronRight
+}
+
+// statusMark is an icon and a word in one color, the way a verified or a
+// failed state reads at a glance.
+func statusMark(c *ui.Context, svg *ui.SVG, text string, col ui.Color) {
+	ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
+		ui.Icon(c, svg).FontSize(12).TextColor(col)
+		ui.Text(c, text).FontSize(12).TextColor(col)
+	})
+}
+
+// warnLine is a warning: the alert mark, then text that wraps under
+// itself rather than under the mark.
+func warnLine(c *ui.Context, text string) ui.Element {
+	var t ui.Element
+	ui.Row(c).Gap(6).AlignItems(ui.Start).Children(func() {
+		ui.Row(c).Height(17).Center().Shrink(0).Children(func() {
+			ui.Icon(c, iconAlert).FontSize(12).TextColor(recRed)
+		})
+		t = ui.Text(c, text).FontSize(12).TextColor(recRed).Grow(1).MinWidth(0)
+	})
+	return t
+}
 
 func playIcon(playing bool) *ui.SVG {
 	if playing {

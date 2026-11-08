@@ -23,7 +23,7 @@ func (a *app) settingsModal(c *ui.Context, windowH float32) {
 			ui.Row(c).AlignItems(ui.Center).Children(func() {
 				ui.Text(c, "设置").FontSize(18).Bold().TextColor(ink).Grow(1)
 				done := ui.ButtonBase(c.Key("set-done")).Padding(6, 16).Radius(8).Center().Background(accent)
-				done.Children(func() { ui.Text(c, "完成").FontSize(13).Bold().TextColor(onAccent) })
+				done.Children(func() { ui.Text(c, "完成").FontSize(13).FontWeight(600).TextColor(onAccent) })
 				if done.Clicked() {
 					a.showSettings = false
 				}
@@ -67,7 +67,7 @@ func (a *app) versionLabel() string {
 // settingsSection is a muted heading over its body.
 func (a *app) settingsSection(c *ui.Context, title string, body func()) {
 	ui.Column(c).Gap(12).Children(func() {
-		ui.Text(c, title).FontSize(13).Bold().TextColor(muted)
+		ui.Text(c, title).FontSize(13).FontWeight(600).TextColor(muted)
 		body()
 	})
 }
@@ -160,9 +160,9 @@ func (a *app) switchRow(c *ui.Context, key, title, desc string, on bool, set fun
 func (a *app) asrSettings(c *ui.Context, s Settings) {
 	ui.Column(c).Gap(12).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "语音识别（").FontSize(13).Bold().TextColor(muted)
-			ui.Link(c, "豆包语音", "https://console.volcengine.com/speech/new/experience/asr").FontSize(13).Bold()
-			ui.Text(c, "）").FontSize(13).Bold().TextColor(muted)
+			ui.Text(c, "语音识别（").FontSize(13).FontWeight(600).TextColor(muted)
+			ui.Link(c, "豆包语音", "https://console.volcengine.com/speech/new/experience/asr").FontSize(13).FontWeight(600)
+			ui.Text(c, "）").FontSize(13).FontWeight(600).TextColor(muted)
 		})
 		ui.Column(c).Gap(6).Children(func() {
 			ui.Text(c, "API Key").FontSize(12).TextColor(muted)

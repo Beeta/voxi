@@ -48,7 +48,7 @@ func (a *app) llmSettings(c *ui.Context, s Settings) {
 			}
 		}
 		add := ui.ButtonBase(c.Key("llm-add")).Padding(8, 16).Radius(8).Center().Background(cardBg2).Border(1, line)
-		add.Children(func() { ui.Text(c, "+ 添加供应商").FontSize(13).Bold().TextColor(ink) })
+		add.Children(func() { ui.Text(c, "+ 添加供应商").FontSize(13).FontWeight(600).TextColor(ink) })
 		if add.Clicked() {
 			id := newProviderID()
 			a.settings.update(func(st *Settings) {
@@ -153,11 +153,11 @@ func (a *app) providerRow(c *ui.Context, p LLMProvider) {
 				ui.Text(c, detail).FontSize(12).TextColor(muted).SingleLine()
 			})
 			if msg != "" {
-				mark, col := "✕ 连接失败", recRed
 				if ok {
-					mark, col = "✓ 连接正常", okGreen
+					statusMark(c, iconCheck, "连接正常", okGreen)
+				} else {
+					statusMark(c, iconCross, "连接失败", recRed)
 				}
-				ui.Text(c, mark).FontSize(12).TextColor(col)
 			}
 			ui.Text(c, "编辑").FontSize(12).TextColor(accent)
 		})
@@ -199,7 +199,7 @@ func (a *app) providerCard(c *ui.Context, p LLMProvider) {
 	k := func(s string) string { return "llm-" + id + "-" + s }
 	ui.Column(c.Key(k("card"))).Gap(10).Padding(12, 12).Radius(10).Border(1, accent).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "编辑供应商").FontSize(13).Bold().TextColor(muted).Grow(1)
+			ui.Text(c, "编辑供应商").FontSize(13).FontWeight(600).TextColor(muted).Grow(1)
 			if toolButton(c, k("fold"), "收起", false).Clicked() {
 				a.llmOpenProv = ""
 			}
@@ -222,7 +222,7 @@ func (a *app) providerCard(c *ui.Context, p LLMProvider) {
 						ui.Text(c, "验证中…").FontSize(13).TextColor(muted)
 					})
 				} else {
-					ui.Text(c, "验证连接").FontSize(13).Bold().TextColor(ink)
+					ui.Text(c, "验证连接").FontSize(13).FontWeight(600).TextColor(ink)
 				}
 			})
 			if !busy && btn.Clicked() {
@@ -236,7 +236,7 @@ func (a *app) providerCard(c *ui.Context, p LLMProvider) {
 						ui.Text(c, "获取中…").FontSize(13).TextColor(muted)
 					})
 				} else {
-					ui.Text(c, "获取模型列表").FontSize(13).Bold().TextColor(ink)
+					ui.Text(c, "获取模型列表").FontSize(13).FontWeight(600).TextColor(ink)
 				}
 			})
 			if !fetching && fb.Clicked() {
@@ -280,7 +280,7 @@ func (a *app) fetchedModels(c *ui.Context, p LLMProvider) {
 	open := a.llmShowFetched[p.ID]
 	head := ui.ButtonBase(c.Key(k("fetched-head"))).Children(func() {
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, triangle(open)).FontSize(12).TextColor(muted).Width(14)
+			ui.Row(c).Width(14).Children(func() { ui.Icon(c, disclosure(open)).FontSize(12).TextColor(muted) })
 			ui.Text(c, "从接口选择（"+strconv.Itoa(len(ids))+" 个）").FontSize(12).TextColor(accent)
 		})
 	})

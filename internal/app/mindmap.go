@@ -21,7 +21,7 @@ func (a *app) mindmapView(c *ui.Context, rec store.Recording) {
 			ui.Text(c, "还没有脑图。点底部的「生成脑图」。").FontSize(13).TextColor(muted)
 		default:
 			if rec.Mindmap.Stale {
-				ui.Text(c, "⚠ 转写已更新，脑图可能过期，建议重新生成。").FontSize(12).TextColor(recRed)
+				warnLine(c, "转写已更新，脑图可能过期，建议重新生成。")
 			}
 			a.mindNode(c, rec.Mindmap.Root, "")
 		}
@@ -54,11 +54,15 @@ func (a *app) mindNode(c *ui.Context, n *store.MindNode, path string) {
 	open := !a.expanded[key] // zero value (false) = expanded
 	ui.Column(c.Key(key)).Gap(4).Children(func() {
 		row := ui.Row(c).Gap(8).AlignItems(ui.Start).Padding(4, 0).Children(func() {
-			mark, mc := "·", accent
-			if hasKids {
-				mark, mc = triangle(open), muted
-			}
-			ui.Text(c, mark).FontSize(13).TextColor(mc).Width(16)
+			// The mark sits in a box one line tall, so it lines up with the
+			// first line of a node that wraps.
+			ui.Row(c).Size(16, 20).Center().Shrink(0).Children(func() {
+				if hasKids {
+					ui.Icon(c, disclosure(open)).FontSize(12).TextColor(muted)
+				} else {
+					ui.Column(c).Size(4, 4).Radius(999).Background(accent)
+				}
+			})
 			ui.Text(c, n.Text).FontSize(14).TextColor(ink).Grow(1).Selectable()
 		})
 		if hasKids && row.Clicked() {
@@ -72,11 +76,4 @@ func (a *app) mindNode(c *ui.Context, n *store.MindNode, path string) {
 			})
 		}
 	})
-}
-
-func triangle(open bool) string {
-	if open {
-		return "▾"
-	}
-	return "▸"
 }

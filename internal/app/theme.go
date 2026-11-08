@@ -13,12 +13,18 @@ const speakerTintCount = 6
 // rather than the framework theme's, which is what makes a light appearance
 // a second palette and nothing else.
 type palette struct {
-	pageBg   ui.Color // the window behind everything
-	cardBg   ui.Color // panels: the sidebar, cards, bubbles
-	cardBg2  ui.Color // controls on a panel, and a row under the pointer
-	cardBg3  ui.Color // a control on a panel under the pointer
-	selBg    ui.Color // the selected recording's row, a tint of accent
-	line     ui.Color // separators and outlines
+	pageBg  ui.Color // the window behind everything
+	cardBg  ui.Color // panels: the sidebar, cards, bubbles
+	cardBg2 ui.Color // controls on a panel, and a row under the pointer
+	cardBg3 ui.Color // a control on a panel under the pointer
+	selBg   ui.Color // the selected recording's row, a tint of accent
+	line    ui.Color // separators and outlines
+	// hover and press are veils rather than colors: laid over whatever is
+	// under them — the sidebar's material, a panel, the page — they lighten
+	// or darken it by the same step, so a row under the pointer reads the
+	// same on any of them. selBg and line are veils for the same reason.
+	hover    ui.Color
+	press    ui.Color
 	ink      ui.Color // primary text
 	muted    ui.Color // secondary text, and what is disabled
 	accent   ui.Color // the primary action, and the selection
@@ -43,12 +49,15 @@ var darkPalette = palette{
 	cardBg:  ui.Hex("#2c2c2e"),
 	cardBg2: ui.Hex("#333335"),
 	cardBg3: ui.Hex("#3f3f43"),
-	selBg:   ui.Hex("#163051"),
-	line:    ui.Hex("#3a3a3c"),
+	selBg:   ui.RGBA(10, 132, 255, 0.2),
+	line:    ui.RGBA(255, 255, 255, 0.1),
+	hover:   ui.RGBA(255, 255, 255, 0.06),
+	press:   ui.RGBA(255, 255, 255, 0.1),
 	ink:     ui.Hex("#f5f5f7"),
-	// A hair brighter than iOS's secondaryLabel (#9a9a9e) so it clears AA on a
-	// hovered row's cardBg2 too, not only on the page.
-	muted:     ui.Hex("#9d9da1"),
+	// Brighter than iOS's secondaryLabel (#9a9a9e) so it clears AA on the
+	// sidebar's rows too: a hovered or selected row is a veil over the panel,
+	// and lifts what is under the text closer to it.
+	muted:     ui.Hex("#a8a8ad"),
 	accent:    ui.Hex("#0a84ff"),
 	onAccent:  ui.Hex("#ffffff"),
 	recRed:    ui.Hex("#ff453a"),
@@ -75,8 +84,10 @@ var lightPalette = palette{
 	cardBg:  ui.Hex("#ffffff"),
 	cardBg2: ui.Hex("#e5e5ea"),
 	cardBg3: ui.Hex("#d6d6dc"),
-	selBg:   ui.Hex("#e8f0fe"),
-	line:    ui.Hex("#d1d1d6"),
+	selBg:   ui.RGBA(0, 122, 255, 0.12),
+	line:    ui.RGBA(0, 0, 0, 0.1),
+	hover:   ui.RGBA(0, 0, 0, 0.04),
+	press:   ui.RGBA(0, 0, 0, 0.08),
 	ink:     ui.Hex("#1c1c1e"),
 	// Deeper than the system's own secondary label (#8e8e93, ~3.3:1 on white)
 	// so it clears WCAG AA 4.5:1 — on white, and on selBg under the selection.
@@ -112,6 +123,8 @@ var (
 	cardBg3   = darkPalette.cardBg3
 	selBg     = darkPalette.selBg
 	line      = darkPalette.line
+	hover     = darkPalette.hover
+	press     = darkPalette.press
 	ink       = darkPalette.ink
 	muted     = darkPalette.muted
 	accent    = darkPalette.accent
@@ -136,7 +149,7 @@ func useAppearance(t *ui.Theme) {
 		p = darkPalette
 	}
 	pageBg, cardBg, cardBg2, cardBg3, line = p.pageBg, p.cardBg, p.cardBg2, p.cardBg3, p.line
-	selBg = p.selBg
+	selBg, hover, press = p.selBg, p.hover, p.press
 	ink, muted, accent, onAccent = p.ink, p.muted, p.accent, p.onAccent
 	recRed, okGreen, btnStroke = p.recRed, p.okGreen, p.btnStroke
 	speakers = p.speakers

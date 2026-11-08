@@ -84,7 +84,7 @@ func (a *app) transcriptView(c *ui.Context, rec store.Recording) {
 			ui.Column(c).Padding(16).Radius(10).Background(cardBg).Gap(8).Children(func() {
 				ui.Text(c, "尚未识别。点击底部的「开始识别」生成带时间线的文字。").FontSize(13).TextColor(muted)
 				if errMsg != "" {
-					ui.Text(c, "⚠ "+errMsg).FontSize(12).TextColor(recRed).Selectable()
+					warnLine(c, errMsg).Selectable()
 				}
 			})
 		})

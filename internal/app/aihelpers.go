@@ -13,7 +13,7 @@ func loadingRow(c *ui.Context, label string) {
 // section is a titled block: a muted heading over its body.
 func section(c *ui.Context, title string, body func()) {
 	ui.Column(c).Gap(8).Children(func() {
-		ui.Text(c, title).FontSize(13).Bold().TextColor(muted)
+		ui.Text(c, title).FontSize(13).FontWeight(600).TextColor(muted)
 		body()
 	})
 }

@@ -235,6 +235,15 @@ func windowOptions(content mygo.Content) mygo.WindowOptions {
 		// frame paints; the app draws over it after that. Both appearances,
 		// so that instant is not a flash of the other one.
 		BackgroundColor: "light-dark(#f2f2f7, #1c1c1e)",
-		Content:         content,
+		// The title bar is hidden and the view draws under it, as a macOS
+		// app with a sidebar does: the traffic lights sit in the sidebar's
+		// corner, inset as far from the top as from the side, and the
+		// sidebar's header keeps clear of them through Context.TitleBar.
+		TitleBarStyle:        mygo.TitleBarHidden,
+		TrafficLightPosition: &mygo.Point{X: 18, Y: 18},
+		// The sidebar material behind what the view leaves transparent,
+		// which is the sidebar alone: the detail pane paints the page.
+		Vibrancy: mygo.VibrancySidebar,
+		Content:  content,
 	}
 }

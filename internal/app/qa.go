@@ -201,7 +201,7 @@ func (a *app) archivedSession(c *ui.Context, rec store.Recording, sess store.Cha
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 			head := ui.ButtonBase(c.Key("open")).Grow(1).Children(func() {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, triangle(open)).FontSize(12).TextColor(muted).Width(14)
+					ui.Row(c).Width(14).Children(func() { ui.Icon(c, disclosure(open)).FontSize(12).TextColor(muted) })
 					ui.Column(c).Gap(2).Grow(1).Children(func() {
 						ui.Text(c, sess.Title).FontSize(14).TextColor(ink).SingleLine()
 						ui.Text(c, sess.Archived.Local().Format("01-02 15:04")+" · "+strconv.Itoa(questions)+" 个问题").FontSize(12).TextColor(muted)
@@ -314,7 +314,7 @@ func (a *app) qaInput(c *ui.Context, rec store.Recording, busy bool) {
 				if off {
 					fg = muted
 				}
-				ui.Text(c, "发送").FontSize(13).Bold().TextColor(fg)
+				ui.Text(c, "发送").FontSize(13).FontWeight(600).TextColor(fg)
 			})
 			if !off && b.Clicked() {
 				send()
@@ -442,7 +442,7 @@ func (a *app) presetDialogs(c *ui.Context) {
 						if empty {
 							fg = muted
 						}
-						ui.Text(c, "保存").FontSize(13).Bold().TextColor(fg)
+						ui.Text(c, "保存").FontSize(13).FontWeight(600).TextColor(fg)
 					})
 					if !empty && save.Clicked() {
 						a.savePreset()
@@ -501,7 +501,7 @@ func (a *app) qaEmpty(c *ui.Context, rec store.Recording) {
 				card.Background(controlFill(card, cardBg, cardBg2))
 				card.Children(func() {
 					ui.Column(c).Gap(4).Children(func() {
-						ui.Text(c, p.label()).FontSize(13).Bold().TextColor(ink)
+						ui.Text(c, p.label()).FontSize(13).FontWeight(600).TextColor(ink)
 						ui.Text(c, p.Text).FontSize(12).TextColor(muted).MaxLines(2)
 					})
 				})

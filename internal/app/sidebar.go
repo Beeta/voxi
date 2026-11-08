@@ -4,9 +4,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Beeta/voxi/internal/store"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
-	"github.com/Beeta/voxi/internal/store"
 )
 
 func (a *app) view(c *ui.Context) {
@@ -25,7 +25,13 @@ func (a *app) view(c *ui.Context) {
 		})
 		return
 	}
-	root := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(pageBg)
+	// The root paints the theme's background, pageBg, unless told otherwise;
+	// where the window shows its material, it has to step aside for the
+	// sidebar to show it. The detail pane paints its own pageBg either way.
+	if c.Vibrancy() {
+		c.Root().Background(ui.Transparent)
+	}
+	root := ui.Row(c).Fill().AlignItems(ui.Stretch)
 	root.Children(func() {
 		a.sidebar(c)
 		a.detail(c)
@@ -46,8 +52,23 @@ func (a *app) view(c *ui.Context) {
 }
 
 func (a *app) sidebar(c *ui.Context) {
-	ui.Column(c).Width(280).Shrink(0).Background(cardBg).Children(func() {
-		ui.Column(c).Padding(20, 20, 16).Gap(12).Children(func() {
+	side := ui.Column(c).Width(280).Shrink(0)
+	// The window's sidebar material shows through where it can; elsewhere
+	// (Linux, older Windows) the sidebar is a panel, as it always was.
+	if !c.Vibrancy() {
+		side.Background(cardBg)
+	}
+	// The title bar is hidden and its traffic lights sit over the sidebar's
+	// corner, so the header starts below them. In full screen they hide and
+	// TitleBar is zero, which gives the header back its usual top padding.
+	top := float32(20)
+	if bar := c.TitleBar(); bar.Left > 0 {
+		top = bar.Height
+	}
+	side.Children(func() {
+		// Where nothing in it takes the press, the header moves the window,
+		// as the title bar it reaches up into would.
+		ui.Column(c).Padding(top, 20, 16).Gap(12).DragWindow().Children(func() {
 			ui.Row(c).AlignItems(ui.Center).Children(func() {
 				// The app's name, where the list it heads used to be named
 				// after itself: the recordings below are plainly that, and
@@ -56,8 +77,10 @@ func (a *app) sidebar(c *ui.Context) {
 				a.importButton(c)
 				// Both are icon-only, so the tip is the only thing that says
 				// what they do; it arrives once the pointer rests on them.
+				// No fill at rest: a gray square on the sidebar's material
+				// reads as a control that is pressed.
 				gear := ui.ButtonBase(c.Key("open-settings")).Padding(6).Radius(8).Center().Tooltip("设置")
-				gear.Background(controlFill(gear, cardBg2, cardBg3))
+				gear.Background(controlFill(gear, ui.Transparent, hover))
 				gear.Children(func() { ui.Icon(c, iconGear).FontSize(16).TextColor(muted) })
 				if gear.Clicked() {
 					a.showSettings = true
@@ -75,7 +98,7 @@ func (a *app) sidebar(c *ui.Context) {
 				// what the user wants, and the icon in the header is easy to
 				// miss before there is anything to look at.
 				imp := ui.ButtonBase(c.Key("import-empty")).Padding(8, 16).Radius(8).Center().Border(1, btnStroke)
-				imp.Background(controlFill(imp, cardBg2, cardBg3))
+				imp.Background(controlFill(imp, hover, press))
 				imp.Children(func() { ui.Text(c, "导入音频文件").FontSize(13).TextColor(ink) })
 				if imp.Clicked() {
 					a.importAudio()
@@ -162,18 +185,16 @@ func (a *app) fileRow(c *ui.Context, rec store.Recording, tags []Tag) {
 	switch {
 	case selected:
 		// A tinted fill, not the accent border it used to share with every
-		// primary button: a selection is a place, not an action. Hover owns
-		// cardBg2, so the two no longer look alike — the old selected row was
-		// cardBg2 too, told apart only by a thin blue edge.
+		// primary button: a selection is a place, not an action.
 		row.Background(selBg)
 	case row.Hovered():
-		row.Background(cardBg2)
-	default:
-		row.Border(1, line)
+		row.Background(hover)
 	}
+	// No outline at rest: a list of outlined cards is a stack of boxes, and
+	// the gap between rows already tells them apart, as a source list does.
 	row.Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(8).Children(func() {
-			ui.Text(c, rec.Name).FontSize(14).Bold().TextColor(ink).Grow(1).MinWidth(0)
+			ui.Text(c, rec.Name).FontSize(14).FontWeight(500).TextColor(ink).Grow(1).MinWidth(0)
 			if rec.Transcript != nil {
 				ui.Icon(c, iconText).FontSize(13).TextColor(okGreen)
 			}

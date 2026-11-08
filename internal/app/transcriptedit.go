@@ -28,7 +28,7 @@ func (a *app) segmentRow(c *ui.Context, rec store.Recording, i int, seg store.Se
 			// holds lays out, and "说话人1" is exactly at that boundary, so
 			// it came out "说话…".
 			sp := ui.Column(c.Key("spk")).Shrink(0).Padding(2, 7).Radius(6).Background(tint).Cursor(ui.CursorPointer)
-			sp.Children(func() { ui.Text(c, seg.Speaker).FontSize(11).Bold().TextColor(ink).NoWrap() })
+			sp.Children(func() { ui.Text(c, seg.Speaker).FontSize(11).FontWeight(600).TextColor(ink).NoWrap() })
 			if sp.Clicked() {
 				a.renaming, a.renameIdx, a.renameDraft = true, i, seg.Speaker
 			}
@@ -41,7 +41,7 @@ func (a *app) segmentRow(c *ui.Context, rec store.Recording, i int, seg store.Se
 		if seekable {
 			ts.Cursor(ui.CursorPointer)
 		}
-		ts.Children(func() { ui.Text(c, formatSecs(seg.Start)).FontSize(12).Bold().TextColor(tc).Width(46) })
+		ts.Children(func() { ui.Text(c, formatSecs(seg.Start)).FontSize(12).FontWeight(600).TextColor(tc).Width(46) })
 		if seekable && ts.Clicked() {
 			a.seekTo(seg.Start)
 		}
@@ -96,7 +96,7 @@ func (a *app) speakerRenameModal(c *ui.Context, rec store.Recording) {
 					a.applyRename(rec, false)
 				}
 				all := ui.ButtonBase(c.Key("all")).Padding(8, 16).Radius(8).Center().Background(accent)
-				all.Children(func() { ui.Text(c, "全部相同").FontSize(13).Bold().TextColor(onAccent) })
+				all.Children(func() { ui.Text(c, "全部相同").FontSize(13).FontWeight(600).TextColor(onAccent) })
 				if all.Clicked() {
 					a.applyRename(rec, true)
 				}

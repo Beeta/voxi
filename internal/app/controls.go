@@ -26,8 +26,8 @@ func (a *app) recordControl(c *ui.Context) {
 		}
 		ui.Column(c).Padding(12).Gap(10).Radius(10).Background(cardBg2).Border(1, border).Children(func() {
 			ui.Row(c).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, title).FontSize(13).Bold().TextColor(ink).Grow(1)
-				ui.Text(c, formatClock(elapsed)).FontSize(15).Bold().TextColor(clock)
+				ui.Text(c, title).FontSize(13).FontWeight(600).TextColor(ink).Grow(1)
+				ui.Text(c, formatClock(elapsed)).FontSize(15).FontWeight(600).TextColor(clock)
 			})
 			if paused {
 				ui.Text(c, "暂停中不录入声音（系统录制指示仍会亮着）").FontSize(11).TextColor(muted)
@@ -42,7 +42,7 @@ func (a *app) recordControl(c *ui.Context) {
 				}
 				pr := ui.ButtonBase(c.Key("pause")).Padding(10, 12).Radius(8).Center().Border(1, btnStroke).Grow(1)
 				pr.Background(controlFill(pr, cardBg, cardBg3))
-				pr.Children(func() { ui.Text(c, label).FontSize(13).Bold().TextColor(ink) })
+				pr.Children(func() { ui.Text(c, label).FontSize(13).FontWeight(600).TextColor(ink) })
 				if pr.Clicked() {
 					if paused {
 						a.rec.Resume()
@@ -51,7 +51,7 @@ func (a *app) recordControl(c *ui.Context) {
 					}
 				}
 				stop := ui.ButtonBase(c.Key("stop")).Padding(10, 12).Radius(8).Center().Background(recRed).Grow(1)
-				stop.Children(func() { ui.Text(c, "停止并保存").FontSize(13).Bold().TextColor(onAccent) })
+				stop.Children(func() { ui.Text(c, "停止并保存").FontSize(13).FontWeight(600).TextColor(onAccent) })
 				if stop.Clicked() {
 					a.stopRecording()
 				}
@@ -94,7 +94,7 @@ func (a *app) recordControl(c *ui.Context) {
 			}
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Center().Children(func() {
 				ui.Column(c).Size(10, 10).Radius(999).Background(dot)
-				ui.Text(c, "开始录制").FontSize(14).Bold().TextColor(fg)
+				ui.Text(c, "开始录制").FontSize(14).FontWeight(600).TextColor(fg)
 			})
 		})
 		if canRec && btn.Clicked() {

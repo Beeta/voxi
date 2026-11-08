@@ -47,7 +47,7 @@ func (a *app) importButton(c *ui.Context) {
 	busy := a.importing
 	a.mu.Unlock()
 	btn := ui.ButtonBase(c.Key("import")).Padding(6).Radius(8).Center().Disabled(busy).Tooltip("导入音频文件")
-	btn.Background(controlFill(btn, cardBg2, cardBg3))
+	btn.Background(controlFill(btn, ui.Transparent, hover))
 	btn.Children(func() { ui.Icon(c, iconImport).FontSize(16).TextColor(muted) })
 	if btn.Clicked() {
 		a.importAudio()
