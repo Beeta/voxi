@@ -1,12 +1,13 @@
 # 有听有记 Voxi
 
 macOS 录音 → 转写 → 摘要 → 脑图 → 问答的桌面应用。Go + [mygo](https://github.com/egoist/mygo)，
-入口 `cmd/voxi`，界面代码在 `internal/app`。构建、运行、签名与首次运行说明见 `README.md`。
+入口 `cmd/voxi`，界面代码在 `internal/app`。mygo 的版本只在 `go.mod` 里定，命令行用
+`go tool mygo`，跟框架同版本。构建、运行、签名与首次运行说明见 `README.md`。
 
 ## 版本与 CHANGELOG
 
 版本号有实际后果，不只是元数据：它是 `mygo.json` 的 `version`，经 ldflags 注入后
-显示在设置弹窗底部，也是 `mygo build` 产出文件名的一部分（`有听有记Voxi 0.2.0.dmg`）。
+显示在设置弹窗底部，也是 `go tool mygo build` 产出文件名的一部分（`you-ting-you-ji-voxi-0.11.2-arm64.dmg`）。
 
 **唯一真源是 `mygo.json` 的 `version`。** 改它就必须在同一个提交里改 `CHANGELOG.md`，
 两者对不上就是 bug。

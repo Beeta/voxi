@@ -155,7 +155,9 @@ func TestIconButtonsShowTheirTip(t *testing.T) {
 				t.Errorf("the tip appeared at once, before the pointer rested")
 			}
 			// The framework waits out tooltipDelay (600ms) before showing it.
-			time.Sleep(750 * time.Millisecond)
+			// The tester's clock is its own, so it is moved on rather than
+			// slept through.
+			tt.Advance(750 * time.Millisecond)
 			tt.Frame()
 			tt.Frame()
 			if !tt.HasText(tc.tip) {

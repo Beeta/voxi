@@ -17,6 +17,28 @@ CHANGELOG」一节。
 
 ## [未发布]
 
+## [0.11.2] - 2026-11-08
+
+### 升级注意
+
+- 打包命令改为 `go tool mygo build .`。以前 `go install …/mygo@v0.3.5` 装的全局 `mygo` 还停在
+  旧版，拿它打包会用旧框架的打包流程，先删掉或不再使用。
+- dmg 文件名从 `有听有记Voxi X.Y.Z.dmg` 变为 `you-ting-you-ji-voxi-X.Y.Z-arm64.dmg`，这是新版
+  mygo 的命名规则；按旧文件名找产物的脚本要跟着改。
+
+### 变更
+
+- mygo 从 v0.3.5 升到 v0.8.1 预发布版（`v0.8.1-0.20261106182104-487bc3496d89`），与 mygo-music
+  同一版本，拿到弹簧动画、`AnimateColor` / `AnimatePose`、`glass` 材质等新 API。`go tool mygo
+  migrate-ui` 跑过，只改了 import 排序和空格，没有需要迁移的 API，已撤回。Go 要求升到 1.27.3。
+  命令行工具登记进 `go.mod` 的 `tool`，版本跟框架绑定。打出来的 app 换了一套框架代码，
+  所以动版本号。
+
+### 内部
+
+- 悬停提示的测试改用 `Tester.Advance` 推进测试时钟：新版 Tester 的时钟不跟墙上时间走，原来的
+  `time.Sleep` 等不出提示。
+
 ## [0.11.1] - 2026-11-08
 
 ### 变更
