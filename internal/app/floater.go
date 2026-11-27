@@ -213,7 +213,7 @@ func (a *app) syncFloater(active bool) bool {
 // floatShrinkDelay is how long the pill stays open after the pointer
 // leaves it. Shrinking at once made it flicker: the pointer at the edge
 // of the pill leaves it, the window shrinks under it, and comes back.
-const floatShrinkDelay = 500 * time.Millisecond
+const floatShrinkDelay = 300 * time.Millisecond
 
 // floatPointerMoved opens the pill as the pointer comes over the floater,
 // and shrinks it floatShrinkDelay after the pointer leaves, unless the
