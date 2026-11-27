@@ -288,3 +288,32 @@ func waitUntil(t *testing.T, cond func() bool) {
 	}
 	t.Fatal("timed out")
 }
+
+// TestQuietForFollowsTheLevel: quiet spans leave the quiet clock running,
+// a loud one resets it, and a pause or stop reads as not quiet at all.
+func TestQuietForFollowsTheLevel(t *testing.T) {
+	r, fc, enc := fakeRecorder(t)
+	r.Start([]Source{SourceMic}, filepath.Join(t.TempDir(), "x.m4a"))
+	waitState(t, r, StateRecording)
+
+	fc.push(SourceMic, 0.0001, 960) // a quiet room
+	waitLen(t, enc, 960)
+	time.Sleep(60 * time.Millisecond)
+	if q := r.QuietFor(); q < 50*time.Millisecond {
+		t.Fatalf("after quiet audio QuietFor is %v, want it running", q)
+	}
+	fc.push(SourceMic, 0.2, 960) // someone speaks
+	waitLen(t, enc, 1920)
+	if q := r.QuietFor(); q > 30*time.Millisecond {
+		t.Fatalf("after speech QuietFor is %v, want it reset", q)
+	}
+	r.Pause()
+	if q := r.QuietFor(); q != 0 {
+		t.Errorf("paused, QuietFor is %v, want 0", q)
+	}
+	r.Stop()
+	waitState(t, r, StateIdle)
+	if q := r.QuietFor(); q != 0 {
+		t.Errorf("stopped, QuietFor is %v, want 0", q)
+	}
+}

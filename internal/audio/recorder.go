@@ -8,6 +8,7 @@ package audio
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"sync"
 	"time"
@@ -97,6 +98,9 @@ type Recorder struct {
 	base time.Duration
 	// silentTotals is how much of the recording was made up as silence.
 	silentTotals time.Duration
+	// loud is when a written span last rose above quietLevel, or when
+	// recording last started or resumed: QuietFor counts from it.
+	loud time.Time
 
 	// enc encodes mixed audio to the file. samples carries delivered
 	// buffers to the encode goroutine while recording (nil otherwise), and
@@ -226,6 +230,7 @@ func (r *Recorder) Start(sources []Source, path string) {
 		r.mu.Lock()
 		r.state = StateRecording
 		r.written = time.Now()
+		r.loud = r.written
 		r.mu.Unlock()
 		r.ping()
 		go r.monitor()
@@ -299,10 +304,45 @@ func (r *Recorder) write(enc encoder, out []float32) {
 		}
 		r.mu.Unlock()
 	}
+	loud := rms(out) >= quietLevel
 	r.mu.Lock()
 	r.recorded += time.Duration(float64(len(out)/channels) / sampleRate * float64(time.Second))
 	r.written = time.Now()
+	if loud {
+		r.loud = r.written
+	}
 	r.mu.Unlock()
+}
+
+// quietLevel is the RMS, on a 0–1 scale, below which a span counts as
+// quiet: about -50 dBFS, under speech in a room and over the noise floor
+// of a laptop's microphone in a quiet one. System audio that has stopped
+// is all zeros, well under it.
+const quietLevel = 0.003
+
+// rms is the root mean square of the samples.
+func rms(s []float32) float64 {
+	if len(s) == 0 {
+		return 0
+	}
+	var sum float64
+	for _, v := range s {
+		sum += float64(v) * float64(v)
+	}
+	return math.Sqrt(sum / float64(len(s)))
+}
+
+// QuietFor is how long the recording has written nothing above quietLevel:
+// how long the room and the speakers have been silent, as at the end of a
+// meeting nobody stopped recording. It is zero unless recording; a pause
+// starts it over.
+func (r *Recorder) QuietFor() time.Duration {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.state != StateRecording || r.loud.IsZero() {
+		return 0
+	}
+	return time.Since(r.loud)
 }
 
 // stop ends capture, finishes encoding and closes the file. A paused
@@ -365,6 +405,7 @@ func (r *Recorder) Resume() {
 	}
 	r.state = StateRecording
 	r.written = time.Now()
+	r.loud = r.written
 	r.base = r.recorded // the audio kept from before the pause
 	r.mu.Unlock()
 	r.ping()

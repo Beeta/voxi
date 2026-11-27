@@ -8,6 +8,7 @@ package app
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	"github.com/Beeta/voxi/internal/asr"
 	"github.com/Beeta/voxi/internal/audio"
@@ -121,6 +122,19 @@ type app struct {
 
 	notify func()
 
+	// The floater (floater.go): its window while a recording is under way,
+	// main thread only; whether it is open into the pill, which its loop
+	// reads from its own goroutine; which way the pill opened; and closing,
+	// set once the app starts quitting so no floater is made after.
+	floatWin  *mygo.Window
+	floatOpen atomic.Bool
+	floatLeft bool
+	closing   bool
+	// floatHover is told the pointer came over the floater or left it. It
+	// resizes the window after the frame that saw it, never inside it; a
+	// test swaps it for one that only flips floatOpen.
+	floatHover func(open bool)
+
 	// setTheme hands the appearance to the framework, which repaints every
 	// window with it. A field rather than a direct call so a test can watch
 	// the choice: the real call must run on the main thread, and a test
@@ -174,6 +188,7 @@ func newApp(st *store.Store, set *settingsStore, rec *audio.Recorder) *app {
 		// per-provider fold state of the fetched model lists
 		llmShowFetched: map[string]bool{},
 	}
+	a.floatHover = func(open bool) { go mygo.RunOnMain(func() { a.setFloatOpen(open) }) }
 	if recs := st.Snapshot(); len(recs) > 0 {
 		a.selected = recs[0].ID
 	}
@@ -203,7 +218,18 @@ func Run() error {
 		a.notify = update
 		a.mu.Unlock()
 		a.rec.SetNotify(update)
+		// The floater is a window too: closing the main window must still
+		// quit the app, as it did before there was one, so the floater
+		// goes with it.
+		win.OnClosed(func() {
+			a.closing = true
+			if a.floatWin != nil {
+				a.floatWin.Destroy()
+				a.floatWin = nil
+			}
+		})
 		go a.tick()
+		go a.floatLoop()
 	})
 	return mygo.App.Run()
 }
