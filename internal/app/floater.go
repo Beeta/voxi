@@ -9,23 +9,36 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// The floater is a small dot that floats above every app while a recording
-// is under way, so a recording left running after the meeting is hard to
-// miss. It never says it is recording: no red, no text, no timer until the
-// pointer is over it. Only its owner knows what it means.
+// The floater is a small circle that floats above every app while a
+// recording is under way, so a recording left running after the meeting is
+// hard to miss: an alarm clock emoji inside a ring whose color warms with
+// the length of the recording, hopping every ten minutes. It never says it
+// is recording: no red, no text, no timer until the pointer is over it, and
+// an alarm clock reads as a timer or a reminder. Only its owner knows what
+// it means.
 //
 // It costs next to nothing: it exists only while recording, its own loop
 // wakes once a second and redraws only when what it shows changes (a
-// color step every minute, the clock each second only while hovered), and
-// it is excluded from screen sharing and screenshots.
+// color step every minute, the clock each second only while hovered), the
+// bounce animates for under a second every ten minutes, and it is
+// excluded from screen sharing and screenshots.
 
-// The floater's sizes, in DIPs: the dot's window, and the pill it opens to
-// under the pointer.
+// The floater's sizes, in DIPs. floatBox is the closed circle and the
+// pill's height; the window is floatInset larger all round, transparent,
+// so the bounce has room to grow. floatPillW is the open window's width.
 const (
-	floatDotSize = 22
-	floatPillW   = 172
-	floatPillH   = 34
+	floatBox   = 32
+	floatInset = 4
+	floatWin   = floatBox + 2*floatInset
+	floatPillW = 196
+	floatRing  = 2.5 // the tinted ring round the circle
+	// floatBounceScale is how far the first hop of a bounce grows the
+	// circle: 32 × 1.12 is under 36, inside floatWin.
+	floatBounceScale = 1.12
 )
+
+// floatBounceEvery is how often the closed floater bounces to be seen.
+const floatBounceEvery = 10 * time.Minute
 
 // quietRemind is how long a recording may hear nothing before the floater
 // pulses and a notification asks whether it is still needed.
@@ -61,13 +74,19 @@ func floatTint(elapsed time.Duration) ui.Color {
 // alternates each second only once the recording has gone quiet.
 type floatFrame struct {
 	minute int
+	bounce int // how many floatBounceEvery have been recorded
 	paused bool
 	pulse  int // 0 steady; 1 or 2 alternate while quiet
 	second int // the clock, while the pill is open; -1 otherwise
 }
 
 func makeFloatFrame(st audio.State, elapsed, quiet time.Duration, open bool, now time.Time) floatFrame {
-	f := floatFrame{minute: int(elapsed.Minutes()), paused: st == audio.StatePaused, second: -1}
+	f := floatFrame{
+		minute: int(elapsed.Minutes()),
+		bounce: int(elapsed / floatBounceEvery),
+		paused: st == audio.StatePaused,
+		second: -1,
+	}
 	if quiet >= quietRemind {
 		f.pulse = 1 + int(now.Unix()%2)
 	}
@@ -91,9 +110,9 @@ func floaterOptions(content mygo.Content, work mygo.Rectangle) mygo.WindowOption
 		Transparent:   true,
 		DisableShadow: true,
 		DisableResize: true,
-		Width:         floatDotSize,
-		Height:        floatDotSize,
-		X:             work.X + work.Width - floatDotSize - 24,
+		Width:         floatWin,
+		Height:        floatWin,
+		X:             work.X + work.Width - floatWin - 24,
 		Y:             work.Y + 96,
 		StateKey:      "floater",
 		Content:       content,
@@ -164,7 +183,7 @@ func (a *app) syncFloater(active bool) bool {
 	w := mygo.NewWindow(floaterOptions(ui.View(a.floatView), mygo.Screen.PrimaryDisplay().WorkArea))
 	// The state remembered may be the pill's, from a quit while it was
 	// open: it always starts as the dot.
-	w.SetSize(floatDotSize, floatDotSize)
+	w.SetSize(floatWin, floatWin)
 	// Hidden from screen sharing, recording and screenshots: whoever the
 	// screen is shown to never sees it.
 	w.SetContentProtection(true)
@@ -183,9 +202,9 @@ func (a *app) syncFloater(active bool) bool {
 
 // setFloatOpen grows the dot into the pill or shrinks it back, keeping the
 // dot where the user put it: the pill opens toward the middle of the
-// screen, so a dot parked at the right edge opens leftward, and it is
-// centered on the dot vertically. Called after the frame that saw the
-// pointer come or go, on the main thread.
+// screen, so a dot parked at the right edge opens leftward. The height
+// stays the same. Called after the frame that saw the pointer come or go,
+// on the main thread.
 func (a *app) setFloatOpen(open bool) {
 	w := a.floatWin
 	if w == nil || a.floatOpen.Load() == open {
@@ -193,8 +212,7 @@ func (a *app) setFloatOpen(open bool) {
 	}
 	a.floatOpen.Store(open)
 	b := w.Bounds()
-	dy := (floatPillH - floatDotSize) / 2
-	dx := floatPillW - floatDotSize
+	dx := floatPillW - floatWin
 	if open {
 		work := mygo.Screen.DisplayNearestPoint(mygo.Point{X: b.X, Y: b.Y}).WorkArea
 		a.floatLeft = b.X+b.Width/2 > work.X+work.Width/2
@@ -202,13 +220,13 @@ func (a *app) setFloatOpen(open bool) {
 		if a.floatLeft {
 			x -= dx
 		}
-		w.SetBounds(mygo.Rectangle{X: x, Y: b.Y - dy, Width: floatPillW, Height: floatPillH})
+		w.SetBounds(mygo.Rectangle{X: x, Y: b.Y, Width: floatPillW, Height: floatWin})
 	} else {
 		x := b.X
 		if a.floatLeft {
 			x += dx
 		}
-		w.SetBounds(mygo.Rectangle{X: x, Y: b.Y + dy, Width: floatDotSize, Height: floatDotSize})
+		w.SetBounds(mygo.Rectangle{X: x, Y: b.Y, Width: floatWin, Height: floatWin})
 	}
 	w.Update(func() {})
 }
@@ -232,8 +250,8 @@ func remindText(quiet time.Duration) string {
 	return fmt.Sprintf("已经 %d 分钟没有声音了，还需要继续吗？", int(quiet.Minutes()))
 }
 
-// floatView draws the floater: the dot, or under the pointer the pill with
-// the clock, pause / resume and stop.
+// floatView draws the floater: the alarm clock in its ring, or under the
+// pointer the pill with the clock, pause / resume and stop.
 func (a *app) floatView(c *ui.Context) {
 	t := *c.Theme()
 	useAppearance(&t)
@@ -248,25 +266,43 @@ func (a *app) floatView(c *ui.Context) {
 	f := makeFloatFrame(st, elapsed, a.rec.QuietFor(), false, time.Now())
 	open := a.floatOpen.Load()
 
-	box := ui.Row(c.Key("float")).Fill().AlignItems(ui.Center).Background(cardBg.Alpha(0.92)).Border(1, line)
+	// The ring carries the tint; once quiet it fades every other second.
+	ring := floatTint(elapsed)
+	if f.pulse == 2 {
+		ring = ring.Alpha(0.25)
+	}
+	// The window is the box plus floatInset all round, room for the bounce
+	// to grow into without being cut off at the window's edge.
+	frame := ui.Row(c).Fill().Padding(floatInset).AlignItems(ui.Stretch)
+	var box ui.Element
+	frame.Children(func() { box = ui.Row(c.Key("float")).Grow(1) })
+	box.AlignItems(ui.Center).
+		Background(cardBg.Alpha(0.94)).Border(floatRing, ring).Radius(floatBox / 2)
 	switch {
 	case !open:
-		box.Radius(floatDotSize / 2).Center()
+		box.Center()
 	case a.floatLeft:
-		box.Radius(floatPillH/2).Padding(0, 12, 0, 5).Gap(8)
+		box.Padding(0, 4, 0, 5).Gap(6)
 	default:
-		box.Radius(floatPillH/2).Padding(0, 5, 0, 12).Gap(8)
+		box.Padding(0, 5, 0, 4).Gap(6)
+	}
+	// Every floatBounceEvery of recording, the closed floater hops twice.
+	// Open, the user is already looking at it, and the pill has no room to
+	// grow.
+	scale := box.Keyframes("bounce", bounceFrames(f.bounce), ui.KeyframeOptions{Run: uint64(f.bounce)})
+	if !open {
+		box.Scale(scale, scale)
 	}
 	box.Children(func() {
-		// The dot stays under the pointer as the pill opens: at the pill's
-		// left end when it opens rightward, at its right end when it opens
-		// leftward, so the click that follows never lands on stop.
+		// The clock emoji stays under the pointer as the pill opens: at the
+		// pill's left end when it opens rightward, at its right end when it
+		// opens leftward, so the click that follows never lands on stop.
 		if open && a.floatLeft {
 			a.floatButtons(c, paused)
 		}
-		// The dot and, open, the clock drag the floater around; the
+		// The emoji and, open, the time drag the floater around; the
 		// buttons do not.
-		grip := ui.Row(c).Gap(8).AlignItems(ui.Center).Grow(1).DragWindow()
+		grip := ui.Row(c).Gap(6).AlignItems(ui.Center).Grow(1).DragWindow()
 		if !open {
 			grip.Center()
 		}
@@ -274,7 +310,7 @@ func (a *app) floatView(c *ui.Context) {
 			if open && a.floatLeft {
 				ui.Text(c, formatClock(elapsed)).FontSize(13).FontWeight(600).TextColor(ink).Grow(1)
 			}
-			floatDot(c, floatTint(elapsed), paused, f.pulse == 2)
+			floatAlarm(c, paused)
 			if open && !a.floatLeft {
 				ui.Text(c, formatClock(elapsed)).FontSize(13).FontWeight(600).TextColor(ink)
 			}
@@ -285,6 +321,24 @@ func (a *app) floatView(c *ui.Context) {
 	})
 	if hov := box.Hovered(); hov != open && a.floatHover != nil {
 		a.floatHover(hov)
+	}
+}
+
+// bounceFrames is the scale of the closed floater's n-th bounce: two hops,
+// the second smaller, over about a second. The 0th, as a recording starts,
+// stands still.
+func bounceFrames(n int) []ui.Keyframe {
+	if n == 0 {
+		return []ui.Keyframe{{Value: 1}, {At: time.Millisecond, Value: 1}}
+	}
+	ms := time.Millisecond
+	return []ui.Keyframe{
+		{Value: 1},
+		{At: 180 * ms, Value: floatBounceScale, Ease: ui.EaseOut},
+		{At: 380 * ms, Value: 0.94, Ease: ui.EaseInOut},
+		{At: 560 * ms, Value: 1 + (floatBounceScale-1)/2, Ease: ui.EaseOut},
+		{At: 760 * ms, Value: 0.98, Ease: ui.EaseInOut},
+		{At: 900 * ms, Value: 1, Ease: ui.EaseOut},
 	}
 }
 
@@ -306,17 +360,12 @@ func (a *app) floatButtons(c *ui.Context, paused bool) {
 	}
 }
 
-// floatDot is the dot itself: filled while recording, a ring while paused,
-// and dimmed every other second once the recording has gone quiet.
-func floatDot(c *ui.Context, tint ui.Color, paused, dim bool) {
-	d := ui.Column(c).Size(10, 10).Radius(5).Shrink(0)
+// floatAlarm is the alarm clock emoji at the floater's heart, faded while
+// paused.
+func floatAlarm(c *ui.Context, paused bool) {
+	e := ui.Text(c, "⏰").FontSize(16).Shrink(0)
 	if paused {
-		d.Border(2, tint)
-	} else {
-		d.Background(tint)
-	}
-	if dim {
-		d.Opacity(0.3)
+		e.Opacity(0.35)
 	}
 }
 

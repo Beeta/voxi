@@ -28,13 +28,13 @@ func TestFloaterOpensUnderThePointer(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 
-	tt := ui.NewTester(a.floatView, floatPillW, floatPillH)
+	tt := ui.NewTester(a.floatView, floatPillW, floatWin)
 	tt.Frame()
-	if texts := tt.Texts(); len(texts) != 0 {
-		t.Fatalf("closed, the floater shows %q; it must show no words", texts)
+	if texts := tt.Texts(); len(texts) != 1 || texts[0] != "⏰" {
+		t.Fatalf("closed, the floater shows %q; it must show the alarm clock and no words", texts)
 	}
 
-	tt.Move(10, floatPillH/2)
+	tt.Move(floatWin/2, floatWin/2)
 	tt.Frame()
 	if !a.floatOpen.Load() {
 		t.Fatal("the pointer over the dot did not open the pill")
@@ -45,20 +45,20 @@ func TestFloaterOpensUnderThePointer(t *testing.T) {
 	}
 
 	// The buttons are icons: the pause one is the first after the clock,
-	// the stop one the last, 5 from the right edge.
-	stopX := float32(floatPillW - 5 - 12)
-	pauseX := stopX - 24 - 8
-	tt.ClickAt(pauseX, floatPillH/2)
+	// the stop one the last, inside the box's margin and padding.
+	stopX := float32(floatPillW - floatInset - 5 - 12)
+	pauseX := stopX - 24 - 6
+	tt.ClickAt(pauseX, floatWin/2)
 	tt.Frame()
 	if st, _, _, _ := a.rec.Snapshot(); st != audio.StatePaused {
 		t.Fatalf("the pause button left the recorder in state %d", st)
 	}
-	tt.ClickAt(pauseX, floatPillH/2)
+	tt.ClickAt(pauseX, floatWin/2)
 	tt.Frame()
 	if st, _, _, _ := a.rec.Snapshot(); st != audio.StateRecording {
 		t.Fatalf("the resume button left the recorder in state %d", st)
 	}
-	tt.ClickAt(stopX, floatPillH/2)
+	tt.ClickAt(stopX, floatWin/2)
 	tt.Frame()
 	for i := 0; i < 400; i++ {
 		if st, _, _, _ := a.rec.Snapshot(); st == audio.StateIdle {
@@ -106,5 +106,28 @@ func TestFloatFrameChangesRarely(t *testing.T) {
 	}
 	if strings.Contains(remindText(5*time.Minute), "录") {
 		t.Error("the quiet reminder says it records")
+	}
+}
+
+// The closed floater bounces once every floatBounceEvery of recording, and
+// not as the recording starts.
+func TestFloatBounceEveryTenMinutes(t *testing.T) {
+	now := time.Unix(1000, 0)
+	at := func(d time.Duration) int {
+		return makeFloatFrame(audio.StateRecording, d, 0, false, now).bounce
+	}
+	if at(0) != 0 || at(9*time.Minute+59*time.Second) != 0 {
+		t.Error("the floater bounces before ten minutes")
+	}
+	if at(10*time.Minute) != 1 || at(25*time.Minute) != 2 {
+		t.Errorf("bounce count at 10 and 25 min is %d and %d, want 1 and 2", at(10*time.Minute), at(25*time.Minute))
+	}
+	if fs := bounceFrames(0); fs[0].Value != 1 || fs[len(fs)-1].Value != 1 {
+		t.Error("a recording just started bounces")
+	}
+	for _, k := range bounceFrames(1) {
+		if k.Value*floatBox > floatWin {
+			t.Errorf("the bounce grows the circle to %v, past the %d window", k.Value*floatBox, floatWin)
+		}
 	}
 }
