@@ -34,10 +34,12 @@ func TestFloaterOpensUnderThePointer(t *testing.T) {
 		t.Fatalf("closed, the floater shows %q; it must show the alarm clock and no words", texts)
 	}
 
-	tt.Move(floatWin/2, floatWin/2)
+	// A corner of the window, outside the circle: the hover area is the
+	// whole square.
+	tt.Move(2, 2)
 	tt.Frame()
 	if !a.floatOpen.Load() {
-		t.Fatal("the pointer over the dot did not open the pill")
+		t.Fatal("the pointer in the corner of the square did not open the pill")
 	}
 	tt.Frame()
 	if !tt.HasText("00:00") {
@@ -46,8 +48,8 @@ func TestFloaterOpensUnderThePointer(t *testing.T) {
 
 	// The buttons are icons: the pause one is the first after the clock,
 	// the stop one the last, inside the box's margin and padding.
-	stopX := float32(floatPillW - floatInset - 5 - 12)
-	pauseX := stopX - 24 - 6
+	stopX := float32(floatPillW - floatInset - 10 - 24)
+	pauseX := stopX - 48 - 12
 	tt.ClickAt(pauseX, floatWin/2)
 	tt.Frame()
 	if st, _, _, _ := a.rec.Snapshot(); st != audio.StatePaused {
