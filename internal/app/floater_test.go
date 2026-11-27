@@ -69,21 +69,25 @@ func TestFloaterOpensUnderThePointer(t *testing.T) {
 	t.Fatal("the stop button did not end the recording")
 }
 
-// The dot warms with the length of the recording: gray for the first half
-// hour, amber by the hour, orange from two hours on, and never the red that
-// would say it records.
+// The ring goes green, yellow, orange, red as the recording gets longer,
+// blending between the stops.
 func TestFloatTint(t *testing.T) {
-	if got := floatTint(10 * time.Minute); got != floatGray {
-		t.Errorf("at 10 min the dot is %v, want gray", got)
+	for _, tc := range []struct {
+		at   time.Duration
+		want ui.Color
+		name string
+	}{
+		{10 * time.Minute, floatGreen, "green"},
+		{30 * time.Minute, floatYellow, "yellow"},
+		{45 * time.Minute, floatOrange, "orange"},
+		{2 * time.Hour, floatRed, "red"},
+	} {
+		if got := floatTint(tc.at); got != tc.want {
+			t.Errorf("at %v the ring is %v, want %s", tc.at, got, tc.name)
+		}
 	}
-	if got := floatTint(60 * time.Minute); got != floatAmber {
-		t.Errorf("at 60 min the dot is %v, want amber", got)
-	}
-	if got := floatTint(3 * time.Hour); got != floatOrange {
-		t.Errorf("at 3 h the dot is %v, want orange", got)
-	}
-	if mid := floatTint(45 * time.Minute); mid == floatGray || mid == floatAmber {
-		t.Errorf("at 45 min the dot is %v, want between gray and amber", mid)
+	if mid := floatTint(22 * time.Minute); mid == floatGreen || mid == floatYellow {
+		t.Errorf("at 22 min the ring is %v, want between green and yellow", mid)
 	}
 }
 

@@ -44,27 +44,35 @@ const floatBounceEvery = 10 * time.Minute
 // pulses and a notification asks whether it is still needed.
 const quietRemind = 3 * time.Minute
 
-// The colors the dot runs through as a recording gets longer: a neutral
-// gray for the first half hour, warming to amber by the hour and to a deep
-// orange by two. Never the record red, which would say what it is.
+// The colors the ring runs through as a recording gets longer, a traffic
+// light: green while the recording is young, then yellow, orange and,
+// past an hour, red. Each stop blends into the next over floatTintStep, so
+// the ring shifts by the minute rather than jumping.
 var (
-	floatGray   = ui.Hex("#8e8e93")
-	floatAmber  = ui.Hex("#ff9f0a")
-	floatOrange = ui.Hex("#ff6a1a")
+	floatGreen  = ui.Hex("#34c759")
+	floatYellow = ui.Hex("#ffcc00")
+	floatOrange = ui.Hex("#ff9500")
+	floatRed    = ui.Hex("#ff3b30")
 )
 
-// floatTint is the dot's color after a recording of elapsed.
+// floatTintStep is the length of each stretch of the ring's colors.
+const floatTintStep = 15 * time.Minute
+
+// floatTint is the ring's color after a recording of elapsed: green up to
+// 15 minutes, yellow by 30, orange by 45, red from 60 on.
 func floatTint(elapsed time.Duration) ui.Color {
-	m := float32(elapsed.Minutes())
+	s := float32(elapsed) / float32(floatTintStep)
 	switch {
-	case m <= 30:
-		return floatGray
-	case m <= 60:
-		return floatGray.Mix(floatAmber, (m-30)/30)
-	case m <= 120:
-		return floatAmber.Mix(floatOrange, (m-60)/60)
+	case s <= 1:
+		return floatGreen
+	case s <= 2:
+		return floatGreen.Mix(floatYellow, s-1)
+	case s <= 3:
+		return floatYellow.Mix(floatOrange, s-2)
+	case s <= 4:
+		return floatOrange.Mix(floatRed, s-3)
 	default:
-		return floatOrange
+		return floatRed
 	}
 }
 

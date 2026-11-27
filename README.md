@@ -142,7 +142,7 @@ internal/tunnel/  cloudflared quick tunnel，供 ASR 从公网取音频
 
 音频捕获使用 ScreenCaptureKit，仅支持 macOS；混入麦克风需要 macOS 15 及以上。在其他平台上窗口依然会打开，并说明无法捕获。
 
-录制期间屏幕上会浮着一个带 ⏰ 的小圆窗，提醒录音还没停：外圈描边随录制时长由灰变暖，每 10 分钟弹跳一次，长时间没声音会闪动并发通知，鼠标移上去展开成计时 + 暂停 + 停止。它不会出现在屏幕共享和截图里。详见 [docs/floater.md](docs/floater.md)。
+录制期间屏幕上会浮着一个带 ⏰ 的小圆窗，提醒录音还没停：外圈描边随录制时长由绿变黄、橙、红，每 10 分钟弹跳一次，长时间没声音会闪动并发通知，鼠标移上去展开成计时 + 暂停 + 停止。它不会出现在屏幕共享和截图里。详见 [docs/floater.md](docs/floater.md)。
 
 该应用会录制麦克风和系统音频，因此它的应用包声明了 `NSMicrophoneUsageDescription` 和 `NSAudioCaptureUsageDescription`（见 `mygo.json`）。macOS 只会把这些权限授予 `Info.plist` 中带有相应用途说明的应用包，所以录制功能需在 `mygo build` 产出的 `.app` 中才能工作——裸 `go run` 出来的二进制不行，系统会在它访问麦克风时将其终止。请用 `mygo build`（或 `dev`）来测试录制。
 
