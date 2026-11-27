@@ -48,8 +48,8 @@ func TestFloaterOpensUnderThePointer(t *testing.T) {
 
 	// The buttons are icons: the pause one is the first after the clock,
 	// the stop one the last, inside the box's margin and padding.
-	stopX := float32(floatPillW - floatInset - 10 - 24)
-	pauseX := stopX - 48 - 12
+	stopX := float32(floatPillW - floatInset - 8 - 18)
+	pauseX := stopX - 36 - 9
 	tt.ClickAt(pauseX, floatWin/2)
 	tt.Frame()
 	if st, _, _, _ := a.rec.Snapshot(); st != audio.StatePaused {

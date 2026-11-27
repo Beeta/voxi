@@ -9,6 +9,7 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/Beeta/voxi/internal/asr"
 	"github.com/Beeta/voxi/internal/audio"
@@ -134,6 +135,11 @@ type app struct {
 	// resizes the window after the frame that saw it, never inside it; a
 	// test swaps it for one that only flips floatOpen.
 	floatHover func(open bool)
+	// floatPointer is whether the last frame of the floater had the
+	// pointer over it (UI thread), and floatShrink the pending collapse
+	// after the pointer left, which its return cancels (main thread).
+	floatPointer bool
+	floatShrink  *time.Timer
 
 	// setTheme hands the appearance to the framework, which repaints every
 	// window with it. A field rather than a direct call so a test can watch
@@ -188,7 +194,7 @@ func newApp(st *store.Store, set *settingsStore, rec *audio.Recorder) *app {
 		// per-provider fold state of the fetched model lists
 		llmShowFetched: map[string]bool{},
 	}
-	a.floatHover = func(open bool) { go mygo.RunOnMain(func() { a.setFloatOpen(open) }) }
+	a.floatHover = func(over bool) { go mygo.RunOnMain(func() { a.floatPointerMoved(over) }) }
 	if recs := st.Snapshot(); len(recs) > 0 {
 		a.selected = recs[0].ID
 	}

@@ -27,13 +27,13 @@ import (
 // pill's height; the window is floatInset larger all round, transparent,
 // so the bounce has room to grow. floatPillW is the open window's width.
 const (
-	floatBox   = 64
-	floatInset = 8
+	floatBox   = 48
+	floatInset = 6
 	floatWin   = floatBox + 2*floatInset
-	floatPillW = 392
-	floatRing  = 5 // the tinted ring round the circle
+	floatPillW = 294
+	floatRing  = 3.75 // the tinted ring round the circle
 	// floatBounceScale is how far the first hop of a bounce grows the
-	// circle: 64 × 1.12 is under 72, inside floatWin.
+	// circle: 48 × 1.12 is under 54, inside floatWin.
 	floatBounceScale = 1.12
 )
 
@@ -183,6 +183,7 @@ func (a *app) syncFloater(active bool) bool {
 			a.floatWin = nil
 		}
 		a.floatOpen.Store(false)
+		a.floatPointer = false
 		return false
 	}
 	if a.floatWin != nil {
@@ -201,11 +202,41 @@ func (a *app) syncFloater(active bool) bool {
 		if a.floatWin == w {
 			a.floatWin = nil
 			a.floatOpen.Store(false)
+			a.floatPointer = false
 		}
 	})
 	a.floatWin = w
 	w.ShowInactive()
 	return true
+}
+
+// floatShrinkDelay is how long the pill stays open after the pointer
+// leaves it. Shrinking at once made it flicker: the pointer at the edge
+// of the pill leaves it, the window shrinks under it, and comes back.
+const floatShrinkDelay = 500 * time.Millisecond
+
+// floatPointerMoved opens the pill as the pointer comes over the floater,
+// and shrinks it floatShrinkDelay after the pointer leaves, unless the
+// pointer comes back first. Main thread.
+func (a *app) floatPointerMoved(over bool) {
+	if a.floatShrink != nil {
+		a.floatShrink.Stop()
+		a.floatShrink = nil
+	}
+	if over {
+		a.setFloatOpen(true)
+		return
+	}
+	var t *time.Timer
+	t = time.AfterFunc(floatShrinkDelay, func() {
+		mygo.RunOnMain(func() {
+			if a.floatShrink == t {
+				a.floatShrink = nil
+				a.setFloatOpen(false)
+			}
+		})
+	})
+	a.floatShrink = t
 }
 
 // setFloatOpen grows the dot into the pill or shrinks it back, keeping the
@@ -290,9 +321,9 @@ func (a *app) floatView(c *ui.Context) {
 	case !open:
 		box.Center()
 	case a.floatLeft:
-		box.Padding(0, 8, 0, 10).Gap(12)
+		box.Padding(0, 6, 0, 8).Gap(9)
 	default:
-		box.Padding(0, 10, 0, 8).Gap(12)
+		box.Padding(0, 8, 0, 6).Gap(9)
 	}
 	// Every floatBounceEvery of recording, the closed floater hops twice.
 	// Open, the user is already looking at it, and the pill has no room to
@@ -310,17 +341,17 @@ func (a *app) floatView(c *ui.Context) {
 		}
 		// The emoji and, open, the time drag the floater around; the
 		// buttons do not.
-		grip := ui.Row(c).Gap(12).AlignItems(ui.Center).Grow(1).DragWindow()
+		grip := ui.Row(c).Gap(9).AlignItems(ui.Center).Grow(1).DragWindow()
 		if !open {
 			grip.Center()
 		}
 		grip.Children(func() {
 			if open && a.floatLeft {
-				ui.Text(c, formatClock(elapsed)).FontSize(26).FontWeight(600).TextColor(ink).Grow(1)
+				ui.Text(c, formatClock(elapsed)).FontSize(20).FontWeight(600).TextColor(ink).Grow(1)
 			}
 			floatAlarm(c, paused)
 			if open && !a.floatLeft {
-				ui.Text(c, formatClock(elapsed)).FontSize(26).FontWeight(600).TextColor(ink)
+				ui.Text(c, formatClock(elapsed)).FontSize(20).FontWeight(600).TextColor(ink)
 			}
 		})
 		if open && !a.floatLeft {
@@ -330,8 +361,12 @@ func (a *app) floatView(c *ui.Context) {
 	// The pointer counts as over the floater anywhere in its window, a
 	// square while closed: the corners outside the circle open it too, so
 	// it is easy to reach.
-	if hov := frame.Hovered(); hov != open && a.floatHover != nil {
-		a.floatHover(hov)
+	// The hook hears each time the pointer comes or goes, not every frame.
+	if hov := frame.Hovered(); hov != a.floatPointer {
+		a.floatPointer = hov
+		if a.floatHover != nil {
+			a.floatHover(hov)
+		}
 	}
 }
 
@@ -374,7 +409,7 @@ func (a *app) floatButtons(c *ui.Context, paused bool) {
 // floatAlarm is the alarm clock emoji at the floater's heart, faded while
 // paused.
 func floatAlarm(c *ui.Context, paused bool) {
-	e := ui.Text(c, "⏰").FontSize(32).Shrink(0)
+	e := ui.Text(c, "⏰").FontSize(24).Shrink(0)
 	if paused {
 		e.Opacity(0.35)
 	}
@@ -382,9 +417,9 @@ func floatAlarm(c *ui.Context, paused bool) {
 
 // floatButton is one of the pill's round icon buttons.
 func floatButton(c *ui.Context, key string, svg *ui.SVG) ui.Element {
-	b := ui.ButtonBase(c.Key(key)).Size(48, 48).Radius(24).Center().Shrink(0)
+	b := ui.ButtonBase(c.Key(key)).Size(36, 36).Radius(18).Center().Shrink(0)
 	b.Background(controlFill(b, ui.Transparent, cardBg3))
-	b.Children(func() { ui.Icon(c, svg).FontSize(24).TextColor(ink) })
+	b.Children(func() { ui.Icon(c, svg).FontSize(18).TextColor(ink) })
 	pressPose(b)
 	return b
 }
